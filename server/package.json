@@ -1,0 +1,17 @@
+{
+  "name": "novastar-diagnostic",
+  "version": "1.0.0",
+  "description": "LED tile diagnostic web server for Novastar T10",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "start:debug": "node server.js --debug"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "license": "MIT"
+}
