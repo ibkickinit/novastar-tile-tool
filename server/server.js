@@ -1,40 +1,44 @@
 #!/usr/bin/env node
 /**
  * Novastar LED Tile Diagnostic Server
- * Runs on Android T10 via Termux. Serves web UI and sends test pattern commands
- * to Novastar receiving cards via the built-in sending card.
+ * Runs on Pi4 CM (production) or T10 via Termux (dev).
+ * Serves web UI, provides REST API for processor state,
+ * and sends protocol commands to Novastar sending/receiving cards.
  *
  * Usage:  node server.js [--debug]
- * Config: edit the CONFIG block below, or set environment variables.
+ * Config: ./config/novatool.config.json (falls back to env vars / defaults)
  */
 
 "use strict";
 
 const express = require("express");
+const fs      = require("fs");
 const net     = require("net");
 const dgram   = require("dgram");
 const path    = require("path");
 
 // ─── Configuration ────────────────────────────────────────────────────────────
+// Load from config file if it exists, fall back to env vars / defaults
+
+const CONFIG_PATH = path.join(__dirname, "config", "novatool.config.json");
+let siteConfig = {};
+try {
+  siteConfig = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf-8"));
+  console.log(`[CFG] Loaded config from ${CONFIG_PATH}`);
+} catch (e) {
+  console.log(`[CFG] No config file found at ${CONFIG_PATH}, using defaults`);
+}
+
+const netCfg = siteConfig.network || {};
+
 const CONFIG = {
-  // IP of the Novastar sending card (T10's built-in card or dedicated card)
-  // Change this to match your network. Common defaults: 192.168.0.10, 192.168.1.10
-  SENDING_CARD_IP:   process.env.NOVA_IP   || "192.168.0.10",
-
-  // Protocol transport: "TCP" (port 5200, recommended) or "UDP" (port 5201)
-  PROTOCOL:          process.env.NOVA_PROTO || "TCP",
-  TCP_PORT:          5200,
-  UDP_PORT:          5201,
-
-  // TCP connection timeout (ms) — increase if tiles are slow to respond
-  CONNECT_TIMEOUT:   3000,
-  // Command response timeout (ms)
-  RESPONSE_TIMEOUT:  2000,
-
-  // Web server port — access at http://<T10-IP>:8080
-  WEB_PORT:          parseInt(process.env.PORT || "8080"),
-
-  // Set true via --debug flag for verbose packet logging
+  SENDING_CARD_IP:   process.env.NOVA_IP   || netCfg.sending_card_ip || "192.168.0.10",
+  PROTOCOL:          process.env.NOVA_PROTO || netCfg.protocol       || "TCP",
+  TCP_PORT:          netCfg.tcp_port            || 5200,
+  UDP_PORT:          netCfg.udp_port            || 5201,
+  CONNECT_TIMEOUT:   netCfg.connect_timeout_ms  || 3000,
+  RESPONSE_TIMEOUT:  netCfg.response_timeout_ms || 2000,
+  WEB_PORT:          parseInt(process.env.PORT || netCfg.web_port || "8080"),
   DEBUG:             process.argv.includes("--debug"),
 };
 
@@ -318,17 +322,124 @@ app.post("/config", (req, res) => {
   res.json({ ok: true, sendingCardIP: CONFIG.SENDING_CARD_IP, protocol: CONFIG.PROTOCOL });
 });
 
+// ─── Processor State ─────────────────────────────────────────────────────────
+// In-memory processor state. When protocol is wired up, this gets populated
+// by real reads. For now it serves as the data model the UI renders from,
+// replacing all hardcoded HTML in the UI.
+
+const processorState = [
+  {
+    id: "vx4s",
+    name: "VX4S",
+    connection: { type: "usb", path: "/dev/ttyUSB0" },
+    firmware: "4.5.2",
+    status: "online",
+    screens: ["Screen 1", "Screen 2"],
+    input: { name: "HDMI 1", signal: true, resolution: "1920 \u00d7 1080 @ 60 Hz", shortRes: "1080p60" },
+    brightness: 100,
+    displayMode: "Normal",
+    ports: [
+      { num: 1, status: "healthy", tiles: 24, resolution: "192\u00d7192", model: "MRV300", firmware: "3.8.1", tempRange: "38\u201344\u00b0C", mismatches: 0 },
+      { num: 2, status: "mismatch", tiles: 24, resolution: "192\u00d7384", model: "MRV330", firmware: "3.6.0", tempRange: "41\u201347\u00b0C", mismatches: 2 },
+      { num: 3, status: "empty" },
+      { num: 4, status: "empty", redundant: true }
+    ],
+    tileCount: 48,
+    avgTemp: 42,
+    mismatchCount: 2,
+    calMode: "ON"
+  },
+  {
+    id: "mctrl660",
+    name: "MCTRL660",
+    connection: { type: "net", ip: "192.168.0.12" },
+    firmware: "3.2.0",
+    status: "online",
+    screens: ["Screen 1"],
+    input: { name: "HDMI 1", signal: true, resolution: "1920 \u00d7 1080 @ 60 Hz", shortRes: "1080p60" },
+    brightness: 80,
+    displayMode: "Normal",
+    ports: [
+      { num: 1, status: "healthy", tiles: 6, resolution: "192\u00d7192", model: "MRV300", firmware: "3.8.1", tempRange: "36\u201340\u00b0C", mismatches: 0 },
+      { num: 2, status: "healthy", tiles: 6, resolution: "192\u00d7192", model: "MRV300", firmware: "3.8.1", tempRange: "37\u201341\u00b0C", mismatches: 0 },
+      { num: 3, status: "empty" },
+      { num: 4, status: "empty" },
+      { num: 5, status: "empty" },
+      { num: 6, status: "empty" }
+    ],
+    tileCount: 12,
+    avgTemp: 39,
+    mismatchCount: 0,
+    calMode: "ON"
+  },
+  {
+    id: "vx2000",
+    name: "VX2000",
+    connection: { type: "net", ip: "192.168.0.22" },
+    firmware: "2.1.4",
+    status: "online",
+    screens: ["Screen 1"],
+    input: { name: "DP 1", signal: true, resolution: "3840 \u00d7 2160 @ 60 Hz", shortRes: "4K@60" },
+    brightness: 75,
+    displayMode: "Normal",
+    ports: [
+      { num: 1,  status: "healthy",  tiles: 24, resolution: "192\u00d7192", model: "MRV300", firmware: "3.8.1", tempRange: "38\u201344\u00b0C", mismatches: 0 },
+      { num: 2,  status: "healthy",  tiles: 24, resolution: "192\u00d7192", model: "MRV300", firmware: "3.8.1", tempRange: "39\u201345\u00b0C", mismatches: 0 },
+      { num: 3,  status: "healthy",  tiles: 24, resolution: "192\u00d7192", model: "MRV300", firmware: "3.8.1", tempRange: "37\u201343\u00b0C", mismatches: 0 },
+      { num: 4,  status: "healthy",  tiles: 24, resolution: "192\u00d7192", model: "MRV300", firmware: "3.8.1", tempRange: "38\u201344\u00b0C", mismatches: 0 },
+      { num: 5,  status: "healthy",  tiles: 24, resolution: "192\u00d7192", model: "MRV300", firmware: "3.8.1", tempRange: "40\u201346\u00b0C", mismatches: 0, redundant: true },
+      { num: 6,  status: "healthy",  tiles: 24, resolution: "192\u00d7192", model: "MRV300", firmware: "3.8.1", tempRange: "38\u201344\u00b0C", mismatches: 0 },
+      { num: 7,  status: "healthy",  tiles: 24, resolution: "192\u00d7192", model: "MRV300", firmware: "3.8.1", tempRange: "39\u201345\u00b0C", mismatches: 0 },
+      { num: 8,  status: "healthy",  tiles: 24, resolution: "192\u00d7192", model: "MRV300", firmware: "3.8.1", tempRange: "37\u201343\u00b0C", mismatches: 0 },
+      { num: 9,  status: "mismatch", tiles: 24, resolution: "192\u00d7192", model: "MRV300", firmware: "3.7.0", tempRange: "41\u201349\u00b0C", mismatches: 1 },
+      { num: 10, status: "mismatch", tiles: 24, resolution: "192\u00d7192", model: "MRV300", firmware: "3.8.1", tempRange: "39\u201345\u00b0C", mismatches: 1 },
+      { num: 11, status: "healthy",  tiles: 24, resolution: "192\u00d7192", model: "MRV300", firmware: "3.8.1", tempRange: "38\u201344\u00b0C", mismatches: 0 },
+      { num: 12, status: "healthy",  tiles: 24, resolution: "192\u00d7192", model: "MRV300", firmware: "3.8.1", tempRange: "39\u201345\u00b0C", mismatches: 0 },
+      { num: 13, status: "healthy",  tiles: 24, resolution: "192\u00d7192", model: "MRV300", firmware: "3.8.1", tempRange: "37\u201343\u00b0C", mismatches: 0 },
+      { num: 14, status: "mismatch", tiles: 24, resolution: "192\u00d7192", model: "MRV300", firmware: "3.8.1", tempRange: "38\u201344\u00b0C", mismatches: 2 },
+      { num: 15, status: "healthy",  tiles: 24, resolution: "192\u00d7192", model: "MRV300", firmware: "3.8.1", tempRange: "39\u201345\u00b0C", mismatches: 0 },
+      { num: 16, status: "healthy",  tiles: 24, resolution: "192\u00d7192", model: "MRV300", firmware: "3.8.1", tempRange: "37\u201343\u00b0C", mismatches: 0 },
+      { num: 17, status: "empty" },
+      { num: 18, status: "mismatch", tiles: 24, resolution: "192\u00d7192", model: "MRV300", firmware: "3.6.0", tempRange: "43\u201351\u00b0C", mismatches: 1 },
+      { num: 19, status: "empty" },
+      { num: 20, status: "empty" }
+    ],
+    tileCount: 480,
+    avgTemp: 44,
+    mismatchCount: 4,
+    calMode: "ON"
+  }
+];
+
+/**
+ * GET /api/processors
+ * Returns the full processor state array. The UI renders entirely from this.
+ * When protocol is wired, this will read live data from connected hardware.
+ */
+app.get("/api/processors", (req, res) => {
+  res.json(processorState);
+});
+
+/**
+ * GET /api/site-config
+ * Returns site config (EDID presets, warning thresholds, defaults, etc.)
+ * The UI renders config-driven elements from this.
+ */
+app.get("/api/site-config", (req, res) => {
+  res.json(siteConfig);
+});
+
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 app.listen(CONFIG.WEB_PORT, "0.0.0.0", () => {
-  console.log("\n╔══════════════════════════════════════════════════╗");
-  console.log("║     Novastar LED Tile Diagnostic Server          ║");
-  console.log("╚══════════════════════════════════════════════════╝");
+  const version = (siteConfig.device && siteConfig.device.version) || "dev";
+  console.log("\n\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557");
+  console.log("\u2551     NovaTool Diagnostic Server v" + version + "          \u2551");
+  console.log("\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d");
   console.log(`\n  Web UI:        http://0.0.0.0:${CONFIG.WEB_PORT}`);
   console.log(`  Sending card:  ${CONFIG.SENDING_CARD_IP} (${CONFIG.PROTOCOL})`);
   console.log(`  Debug mode:    ${CONFIG.DEBUG}`);
-  console.log(`\n  Connect your phone to the T10's Wi-Fi AP,`);
-  console.log(`  then open: http://192.168.43.1:${CONFIG.WEB_PORT}\n`);
+  console.log(`  Config:        ${CONFIG_PATH}\n`);
   if (CONFIG.DEBUG) {
     console.log("  [DEBUG] Verbose packet logging enabled\n");
   }

@@ -1,0 +1,1711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>NovaTool v11</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+
+/* ==============================================================
+   DESIGN TOKENS
+   Semantic names so any maintainer knows what each variable means.
+   ============================================================== */
+:root {
+  --color-bg:           #0a0c0f;
+  --color-surface:      #12151a;
+  --color-surface-mid:  #181c23;
+  --color-surface-high: #1e232c;
+  --color-border:       #262d38;
+  --color-border-mid:   #333c4a;
+  --color-text:         #d8dce3;
+  --color-text-sub:     #7d8898;
+  --color-text-dim:     #4a5567;
+  --color-amber:        #ffb300;
+  --color-amber-bg:     rgba(255,179,0,.13);
+  --color-amber-border: rgba(255,179,0,.35);
+  --color-teal:         #2dd4a8;
+  --color-teal-bg:      rgba(45,212,168,.13);
+  --color-teal-border:  rgba(45,212,168,.35);
+  --color-red:          #ff5252;
+  --color-red-bg:       rgba(255,82,82,.13);
+  --color-red-border:   rgba(255,82,82,.35);
+  --color-green:        #66bb6a;
+  --color-blue:         #42a5f5;
+  --color-blue-bg:      rgba(66,165,245,.13);
+  --color-blue-border:  rgba(66,165,245,.35);
+  --font-ui:   'Barlow Condensed', sans-serif;
+  --font-data: 'Share Tech Mono', monospace;
+}
+.theme-light {
+  --color-bg:           #f0f1f3;
+  --color-surface:      #ffffff;
+  --color-surface-mid:  #f5f6f8;
+  --color-surface-high: #eaecef;
+  --color-border:       #d0d4db;
+  --color-border-mid:   #b8bdc8;
+  --color-text:         #1a1c22;
+  --color-text-sub:     #565c6b;
+  --color-text-dim:     #909aaa;
+  --color-amber-bg:     rgba(180,120,0,.10);
+  --color-amber-border: rgba(180,120,0,.28);
+  --color-teal-bg:      rgba(20,140,110,.10);
+  --color-teal-border:  rgba(20,140,110,.28);
+  --color-red-bg:       rgba(200,50,50,.10);
+  --color-red-border:   rgba(200,50,50,.28);
+  --color-blue-bg:      rgba(30,120,200,.10);
+  --color-blue-border:  rgba(30,120,200,.28);
+}
+
+/* ==============================================================
+   BASE
+   ============================================================== */
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{background:#050507;height:100%}
+.theme-light html,.theme-light{background:#e0e1e3}
+body{background:var(--color-bg);color:var(--color-text);font-family:var(--font-ui);max-width:480px;height:100vh;max-height:800px;margin:0 auto;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--color-border-mid);transition:background .25s,color .25s}
+.data{font-family:var(--font-data)}
+
+/* ==============================================================
+   LAYOUT
+   ============================================================== */
+.status-bar{background:var(--color-surface);border-bottom:1px solid var(--color-border);height:42px;display:flex;align-items:center;padding:0 10px;gap:8px;flex-shrink:0;z-index:30}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--color-teal);box-shadow:0 0 5px var(--color-teal);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.status-text{flex:1;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.status-reconnect-btn{background:none;border:none;color:var(--color-teal);font-size:18px;cursor:pointer;padding:4px 6px;border-radius:6px;flex-shrink:0;line-height:1}
+.status-reconnect-btn:active{background:var(--color-teal-bg)}
+
+.alert-bar{height:0;overflow:hidden;transition:height .18s;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-size:12px;font-weight:700;letter-spacing:.5px;cursor:pointer}
+.alert-bar.visible{height:28px}
+.alert-bar.type-blackout{background:var(--color-red-bg);border-bottom:1px solid var(--color-red-border);color:var(--color-red)}
+.alert-bar.type-freeze,.alert-bar.type-pattern{background:var(--color-amber-bg);border-bottom:1px solid var(--color-amber-border);color:var(--color-amber)}
+
+.main-scroll{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
+.main-scroll::-webkit-scrollbar{width:2px}
+.main-scroll::-webkit-scrollbar-thumb{background:var(--color-border)}
+.page{display:none}.page.active{display:block}
+.page-content{padding:10px}
+.page-bottom-spacer{height:14px}
+
+.tab-bar{background:var(--color-surface);border-top:1px solid var(--color-border);display:flex;flex-shrink:0;z-index:30}
+.tab-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:7px 2px 6px;cursor:pointer;font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--color-text-dim);transition:color .15s;position:relative;user-select:none;-webkit-user-select:none}
+.tab-item.active{color:var(--color-amber)}
+.tab-item-icon{font-size:17px;line-height:1}
+.tab-badge{position:absolute;top:4px;right:calc(50% - 16px);width:14px;height:14px;border-radius:7px;background:var(--color-amber);border:1.5px solid var(--color-surface);font-size:9px;font-weight:700;color:var(--color-bg);display:flex;align-items:center;justify-content:center}
+
+/* ==============================================================
+   SHARED COMPONENTS
+   ============================================================== */
+.badge{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;letter-spacing:.5px;flex-shrink:0}
+.badge-warn{background:var(--color-amber-bg);color:var(--color-amber);border:1px solid var(--color-amber-border)}
+.badge-ok{background:var(--color-teal-bg);color:var(--color-teal);border:1px solid var(--color-teal-border)}
+.badge-proc{background:var(--color-amber-bg);color:var(--color-amber);border:1px solid var(--color-amber-border)}
+.badge-tile{background:var(--color-red-bg);color:var(--color-red);border:1px solid var(--color-red-border)}
+.badge-both{background:var(--color-teal-bg);color:var(--color-teal);border:1px solid var(--color-teal-border)}
+
+.card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;overflow:hidden;margin-bottom:8px}
+.card-header{padding:9px 12px;border-bottom:1px solid var(--color-border);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--color-text-dim);display:flex;align-items:center;justify-content:space-between}
+
+.data-row{padding:10px 12px;border-bottom:1px solid var(--color-border);display:flex;align-items:center;gap:8px;font-size:14px}
+.data-row:last-child{border-bottom:none}
+.data-row.tappable{cursor:pointer}
+.data-row.tappable:active{background:var(--color-surface-high)}
+.row-label{color:var(--color-text-sub);flex:1}
+.row-value{font-family:var(--font-data);font-size:12px}
+.row-value.ok{color:var(--color-teal)}
+.row-value.warn{color:var(--color-amber)}
+.row-value.err{color:var(--color-red)}
+
+.section-label{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--color-text-dim);margin:14px 0 8px}
+
+.sub-page-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.back-button{background:none;border:none;color:var(--color-amber);font-size:16px;cursor:pointer;padding:0}
+.sub-page-title{font-size:17px;font-weight:700}
+
+.primary-action-button{width:100%;height:44px;border-radius:8px;background:var(--color-amber);color:#000;font-family:var(--font-ui);font-size:15px;font-weight:800;border:none;cursor:pointer;margin-bottom:6px}
+.primary-action-button:active{opacity:.8}
+
+/* ==============================================================
+   PROCESSOR CARDS
+   ============================================================== */
+.processor-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;margin-bottom:8px;overflow:hidden;cursor:pointer;transition:border-color .2s}
+.processor-card.selected{border-color:var(--color-amber);cursor:default}
+.processor-summary{padding:10px 12px;display:flex;align-items:center;gap:8px}
+.processor-chevron{color:var(--color-text-dim);font-size:13px;transition:transform .2s;flex-shrink:0}
+.processor-card.selected .processor-chevron{transform:rotate(90deg);color:var(--color-amber)}
+.processor-status-dot{width:8px;height:8px;border-radius:50%;background:var(--color-teal);flex-shrink:0}
+.processor-info{flex:1;min-width:0}
+.processor-name{font-size:15px;font-weight:700;display:flex;align-items:center;gap:6px}
+.processor-summary-line{font-size:12px;color:var(--color-text-sub);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap}
+.processor-summary-line .mismatch{color:var(--color-amber)}
+.processor-summary-line .signal{color:var(--color-green)}
+/* USB badge uses blue to indicate connection type, not warning state */
+.conn-badge-usb{background:var(--color-blue-bg);color:var(--color-blue);border:1px solid var(--color-blue-border)}
+.conn-badge-net{background:var(--color-teal-bg);color:var(--color-teal);border:1px solid var(--color-teal-border)}
+.processor-body{display:none;border-top:1px solid var(--color-border)}
+.processor-card.selected .processor-body{display:block}
+.processor-input-row{padding:8px 12px;border-bottom:1px solid var(--color-border);font-size:13px;color:var(--color-text-sub);display:flex;align-items:center;gap:6px;cursor:pointer;flex-wrap:wrap}
+.processor-input-row:active{background:var(--color-surface-high)}
+.signal-dot{width:6px;height:6px;border-radius:50%;background:var(--color-teal);flex-shrink:0}
+.input-row-main{flex:1;display:flex;align-items:center;gap:6px;min-width:0}
+.input-row-res{width:100%;padding-left:18px;font-family:var(--font-data);font-size:11px;color:var(--color-text-dim);margin-top:1px}
+.port-section{padding:10px 12px}
+.port-label{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--color-text-dim);margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:6px}
+.port-label:active{color:var(--color-text-sub)}
+.port-dots-row{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px}
+/* All port dots use uniform sizing — max 10 per row at this size */
+.port-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;cursor:pointer;font-family:var(--font-data);transition:all .15s;position:relative}
+.port-dot.healthy{background:var(--color-teal-bg);color:var(--color-teal);border:2px solid var(--color-teal-border);box-shadow:0 0 8px rgba(45,212,168,.25)}
+.port-dot.mismatch{background:var(--color-amber-bg);color:var(--color-amber);border:2px solid var(--color-amber-border);box-shadow:0 0 8px rgba(255,179,0,.25)}
+.port-dot.empty{background:var(--color-surface-high);color:var(--color-text-dim);border:2px solid var(--color-border)}
+/* Redundant port: amber triangle badge via ::after pseudo-element */
+.port-dot.redundant::after{content:"";position:absolute;top:-3px;right:-3px;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid var(--color-amber);filter:drop-shadow(0 0 3px rgba(255,179,0,.6))}
+.port-detail-list{background:var(--color-surface-mid);border-radius:6px;border:1px solid var(--color-border);overflow:hidden}
+.port-detail-row{display:flex;align-items:center;gap:8px;padding:9px 10px;border-bottom:1px solid var(--color-border);cursor:pointer}
+.port-detail-row:last-child{border-bottom:none}
+.port-detail-row:active{background:var(--color-surface-high)}
+.port-detail-number{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;font-family:var(--font-data)}
+.port-detail-number.healthy{background:var(--color-teal-bg);color:var(--color-teal);border:1.5px solid var(--color-teal-border)}
+.port-detail-number.mismatch{background:var(--color-amber-bg);color:var(--color-amber);border:1.5px solid var(--color-amber-border)}
+.port-detail-number.empty{background:var(--color-surface-high);color:var(--color-text-dim);border:1.5px solid var(--color-border)}
+.port-detail-info{flex:1}
+.port-detail-primary{font-size:13px;font-weight:600}
+.port-detail-secondary{font-size:11px;color:var(--color-text-sub);font-family:var(--font-data);margin-top:1px}
+.status-pill{font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;letter-spacing:.4px}
+.status-pill.ok{background:var(--color-teal-bg);color:var(--color-teal)}
+.status-pill.mismatch{background:var(--color-amber-bg);color:var(--color-amber)}
+.processor-footer{padding:8px 12px;border-top:1px solid var(--color-border);display:flex;gap:12px;font-size:12px;color:var(--color-text-sub);flex-wrap:wrap}
+.processor-footer .data{font-size:11px;color:var(--color-text)}
+
+/* ==============================================================
+   SCREEN SELECTOR
+   ============================================================== */
+.screen-selector{background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;padding:10px 12px;margin-bottom:8px}
+.screen-selector-header{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--color-text-dim);margin-bottom:8px;display:flex;justify-content:space-between}
+.selection-count{color:var(--color-teal)}
+.screen-chips{display:flex;gap:7px;flex-wrap:wrap}
+.screen-chip{padding:7px 11px;border-radius:7px;border:1.5px solid var(--color-teal-border);background:var(--color-teal-bg);cursor:pointer;transition:all .15s;min-width:130px}
+.screen-chip.unselected{border-color:var(--color-border);background:var(--color-surface-mid)}
+.screen-chip-name{font-size:14px;font-weight:600;color:var(--color-teal)}
+.screen-chip.unselected .screen-chip-name{color:var(--color-text-sub)}
+.screen-chip-subtitle{font-size:11px;color:var(--color-text-dim);font-family:var(--font-data);margin-top:1px}
+
+/* ==============================================================
+   QUICK ACTIONS
+   ============================================================== */
+.quick-actions{background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;padding:10px 12px;margin-bottom:8px;position:relative}
+.quick-actions-header{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--color-text-dim);margin-bottom:8px}
+.quick-actions-hint{font-size:12px;color:var(--color-text-sub);margin-bottom:8px;display:none}
+.quick-actions.disabled .quick-actions-hint{display:block}
+.quick-actions.disabled .action-button-row{opacity:.35;pointer-events:none}
+.action-button-row{display:flex;gap:7px;margin-bottom:7px}
+.action-button-row:last-child{margin-bottom:0}
+.action-button{flex:1;height:40px;border-radius:7px;border:1.5px solid var(--color-border);background:var(--color-surface-mid);color:var(--color-text-sub);font-family:var(--font-ui);font-size:13px;font-weight:600;letter-spacing:.3px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+.action-button:active{opacity:.75}
+.action-button.active-amber{background:var(--color-amber-bg);color:var(--color-amber);border-color:var(--color-amber-border)}
+.action-button.active-red{background:var(--color-red-bg);color:var(--color-red);border-color:var(--color-red-border)}
+.action-button.active-teal{background:var(--color-teal-bg);color:var(--color-teal);border-color:var(--color-teal-border)}
+.action-button.active-blue{background:var(--color-blue-bg);color:var(--color-blue);border-color:var(--color-blue-border)}
+
+/* Test pattern quick-popup on Overview */
+.pattern-popup{display:none;position:absolute;left:12px;right:12px;bottom:-6px;transform:translateY(100%);background:var(--color-surface);border:1px solid var(--color-amber-border);border-radius:10px;padding:10px;z-index:50;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+.pattern-popup.visible{display:block}
+.pattern-popup-colors{display:flex;gap:6px;margin-bottom:8px}
+.pattern-popup-color{flex:1;height:40px;border-radius:7px;border:2px solid transparent;cursor:pointer;font-family:var(--font-ui);font-size:12px;font-weight:700;transition:opacity .15s}
+.pattern-popup-color:active{opacity:.7}
+.pattern-popup-more{width:100%;height:32px;border-radius:6px;background:transparent;border:1px solid var(--color-border);color:var(--color-text-sub);font-family:var(--font-ui);font-size:12px;font-weight:600;cursor:pointer}
+.pattern-popup-more:active{background:var(--color-surface-high)}
+
+/* ==============================================================
+   CONTROL &mdash; SLIDERS, TOGGLES, PATTERNS, RGB, COLOR TEMP
+   ============================================================== */
+.slider-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;padding:11px 13px;margin-bottom:7px}
+.slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.slider-label{font-size:15px;font-weight:600}
+.slider-value{font-family:var(--font-data);font-size:14px}
+.slider-value.amber{color:var(--color-amber)}
+.slider-value.teal{color:var(--color-teal)}
+/* Slider track: tall touch target, thin visual rail via ::before */
+.slider-track{width:100%;height:34px;position:relative;cursor:pointer}
+.slider-track::before{content:"";position:absolute;top:50%;left:0;right:0;height:5px;transform:translateY(-50%);background:var(--color-surface-high);border-radius:3px}
+.slider-fill{position:absolute;top:50%;left:0;height:5px;transform:translateY(-50%);border-radius:3px;pointer-events:none}
+.slider-fill.amber{background:var(--color-amber)}
+.slider-fill.teal{background:var(--color-teal)}
+.slider-thumb{position:absolute;top:50%;transform:translate(-50%,-50%);width:24px;height:24px;border-radius:50%;background:var(--color-text);border:3px solid;pointer-events:none}
+.slider-thumb.amber{border-color:var(--color-amber)}
+.slider-thumb.teal{border-color:var(--color-teal)}
+.slider-with-buttons{display:flex;align-items:center;gap:8px}
+.slider-with-buttons .slider-track{flex:1}
+.adjust-button{width:32px;height:32px;border-radius:5px;border:1px solid var(--color-border);background:var(--color-surface-mid);color:var(--color-text-sub);font-size:14px;font-weight:700;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.adjust-button:active{background:var(--color-surface-high)}
+
+.toggle-row{background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;padding:10px 13px;margin-bottom:7px;display:flex;align-items:center;gap:10px}
+.toggle-info{flex:1}
+.toggle-name{font-size:15px;font-weight:600}
+.toggle-subtitle{font-size:11px;color:var(--color-text-sub);margin-top:2px}
+.toggle-switch{width:46px;height:25px;border-radius:13px;background:var(--color-surface-high);border:1.5px solid var(--color-border);position:relative;cursor:pointer;transition:all .2s;flex-shrink:0}
+.toggle-switch.on{background:var(--color-teal-bg);border-color:var(--color-teal-border)}
+.toggle-knob{position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:var(--color-text-dim);transition:all .2s}
+.toggle-switch.on .toggle-knob{left:23px;background:var(--color-teal)}
+
+/* 4-column test pattern grid */
+.pattern-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:8px}
+.pattern-button{height:64px;border-radius:8px;border:1.5px solid var(--color-border);background:var(--color-surface);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;transition:all .15s}
+.pattern-button:active{opacity:.7}
+.pattern-button.active{background:var(--color-amber-bg);border-color:var(--color-amber-border)}
+.pattern-icon{font-size:20px}
+.pattern-label{font-size:10px;font-weight:700;letter-spacing:.3px;color:var(--color-text-sub)}
+.pattern-button.active .pattern-label{color:var(--color-amber)}
+.pattern-color-swatch{width:24px;height:24px;border-radius:50%}
+
+/* RGB gains and brightness cards */
+.rgb-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;padding:11px 13px;margin-bottom:7px}
+.rgb-channel-row{margin-bottom:9px}
+.rgb-channel-row:last-child{margin-bottom:0}
+.rgb-channel-header{display:flex;justify-content:space-between;margin-bottom:6px}
+.rgb-channel-label{font-size:13px;font-weight:600}
+.rgb-channel-value{font-family:var(--font-data);font-size:12px}
+/* RGB slider track: tall touch target like main sliders */
+.rgb-track{width:100%;height:30px;position:relative;cursor:pointer}
+.rgb-track::before{content:"";position:absolute;top:50%;left:0;right:0;height:4px;transform:translateY(-50%);border-radius:2px}
+.rgb-fill{position:absolute;top:50%;left:0;height:4px;transform:translateY(-50%);border-radius:2px;pointer-events:none}
+.rgb-thumb{position:absolute;top:50%;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;background:var(--color-surface);border:2.5px solid;pointer-events:none}
+
+.color-temp-preset-row{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.color-temp-preset{padding:6px 10px;border-radius:6px;border:1.5px solid var(--color-border);background:var(--color-surface-mid);font-family:var(--font-ui);font-size:12px;font-weight:700;color:var(--color-text-sub);cursor:pointer;transition:all .15s}
+.color-temp-preset:active{opacity:.7}
+.color-temp-preset.active{background:var(--color-amber-bg);color:var(--color-amber);border-color:var(--color-amber-border)}
+.color-temp-reset-button{width:100%;height:36px;border-radius:7px;background:var(--color-surface-mid);border:1.5px solid var(--color-border);color:var(--color-text-sub);font-family:var(--font-ui);font-size:13px;font-weight:600;cursor:pointer;margin-top:6px}
+.color-temp-reset-button:active{background:var(--color-surface-high)}
+
+/* ==============================================================
+   SAVE TAB
+   ============================================================== */
+.save-processor-section{background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;margin-bottom:12px;overflow:hidden}
+.save-processor-header{padding:12px 14px;border-bottom:1px solid var(--color-border);display:flex;align-items:center;justify-content:space-between;background:var(--color-surface-mid)}
+.save-processor-name{font-size:17px;font-weight:700}
+.save-change-count{font-size:12px;font-weight:700;padding:3px 9px;border-radius:5px;background:var(--color-amber-bg);color:var(--color-amber);border:1px solid var(--color-amber-border)}
+.save-change-item{padding:13px 14px;border-bottom:1px solid var(--color-border);display:flex;align-items:center;gap:12px;min-height:58px}
+.save-change-item:last-child{border-bottom:none}
+.save-checkbox{width:26px;height:26px;border-radius:6px;border:2.5px solid var(--color-amber);background:transparent;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;font-size:15px;color:var(--color-amber)}
+.save-checkbox.checked{background:var(--color-amber-bg)}
+.save-change-info{flex:1}
+.save-change-name{font-size:15px;font-weight:700}
+.save-change-detail{font-size:13px;font-family:var(--font-data);color:var(--color-text-sub);margin-top:3px}
+.save-change-status{font-size:11px;font-weight:700;color:var(--color-amber);flex-shrink:0;letter-spacing:.5px}
+.save-to-flash-button{width:100%;height:56px;border-radius:10px;background:var(--color-amber);color:#000;font-family:var(--font-ui);font-size:18px;font-weight:800;letter-spacing:1.5px;border:none;cursor:pointer;transition:opacity .15s;margin-bottom:10px}
+.save-to-flash-button:disabled{opacity:.35;cursor:not-allowed}
+.save-to-flash-button:not(:disabled):active{opacity:.8}
+.revert-session-button{width:100%;height:46px;border-radius:10px;background:transparent;border:2px solid var(--color-border);color:var(--color-text-sub);font-family:var(--font-ui);font-size:15px;font-weight:600;cursor:pointer}
+
+/* ==============================================================
+   CONFIG ROWS
+   ============================================================== */
+.config-row{background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;padding:11px 12px;margin-bottom:7px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:background .15s}
+.config-row:active{background:var(--color-surface-mid)}
+.config-row.disabled{opacity:.3;pointer-events:none}
+.config-row-icon{font-size:19px;width:28px;text-align:center;flex-shrink:0}
+.config-row-info{flex:1}
+.config-row-name{font-size:15px;font-weight:700}
+.config-row-subtitle{font-size:11px;color:var(--color-text-sub);margin-top:2px}
+.config-row-arrow{color:var(--color-text-dim);font-size:16px}
+
+/* ==============================================================
+   EDID PAGE
+   ============================================================== */
+.edid-processor-row{display:flex;gap:6px;margin-bottom:10px}
+.edid-processor-chip{padding:7px 12px;border-radius:7px;border:1.5px solid var(--color-border);background:var(--color-surface-mid);font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--color-text-sub);cursor:pointer;transition:all .15s}
+.edid-processor-chip.active{border-color:var(--color-amber-border);background:var(--color-amber-bg);color:var(--color-amber)}
+.edid-input-selector{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px}
+.edid-input-button{padding:9px 11px;border-radius:7px;border:1.5px solid var(--color-border);background:var(--color-surface-mid);cursor:pointer;transition:all .15s}
+.edid-input-button.active{border-color:var(--color-amber-border);background:var(--color-amber-bg)}
+.edid-input-port-name{font-size:14px;font-weight:700;color:var(--color-text)}
+.edid-input-button.active .edid-input-port-name{color:var(--color-amber)}
+.edid-input-resolution{font-size:10px;font-family:var(--font-data);color:var(--color-text-sub);margin-top:1px}
+.edid-input-signal{font-size:9px;color:var(--color-teal)}
+.edid-resolution-presets{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+.edid-resolution-preset{padding:10px 12px;border-radius:7px;border:1.5px solid var(--color-border);background:var(--color-surface-mid);cursor:pointer;transition:all .15s}
+.edid-resolution-preset:active{background:var(--color-surface-high)}
+.edid-resolution-preset.active{border-color:var(--color-amber-border);background:var(--color-amber-bg)}
+.edid-preset-resolution{font-size:14px;font-weight:700;color:var(--color-text)}
+.edid-resolution-preset.active .edid-preset-resolution{color:var(--color-amber)}
+.edid-preset-label{font-size:11px;color:var(--color-text-sub);font-family:var(--font-data)}
+.edid-custom-fields{background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;padding:12px;margin-bottom:8px}
+.edid-field-row{display:flex;align-items:center;gap:8px}
+.edid-field-label{font-size:13px;color:var(--color-text-sub);flex-shrink:0}
+.edid-field-input{flex:1;height:38px;border-radius:6px;border:1.5px solid var(--color-border);background:var(--color-surface-mid);color:var(--color-text);font-family:var(--font-data);font-size:14px;padding:0 10px;outline:none}
+.edid-field-input:focus{border-color:var(--color-amber)}
+.edid-field-unit{font-size:12px;color:var(--color-text-sub)}
+.edid-match-to-wall{background:var(--color-teal-bg);border:1px solid var(--color-teal-border);border-radius:7px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.edid-match-description{font-size:13px;color:var(--color-teal)}
+.edid-match-button{padding:8px 14px;border-radius:6px;background:var(--color-teal);color:#000;font-family:var(--font-ui);font-size:13px;font-weight:700;border:none;cursor:pointer;flex-shrink:0}
+.fps-button-grid{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+.fps-button{padding:7px 11px;border-radius:5px;border:1.5px solid var(--color-border);background:var(--color-surface-mid);font-family:var(--font-data);font-size:12px;color:var(--color-text-sub);cursor:pointer;transition:all .15s}
+.fps-button.active{background:var(--color-amber-bg);color:var(--color-amber);border-color:var(--color-amber-border)}
+
+/* ==============================================================
+   COMMANDS PAGE
+   ============================================================== */
+.command-search{width:100%;height:38px;border-radius:7px;border:1.5px solid var(--color-border);background:var(--color-surface-mid);color:var(--color-text);font-family:var(--font-ui);font-size:14px;padding:0 12px;margin-bottom:10px;outline:none}
+.command-search:focus{border-color:var(--color-amber)}
+.command-category{background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;margin-bottom:7px;overflow:hidden}
+.command-category-header{padding:11px 12px;display:flex;align-items:center;gap:8px;cursor:pointer}
+.command-category-header:active{background:var(--color-surface-mid)}
+.command-category-icon{font-size:17px;flex-shrink:0}
+.command-category-name{font-size:15px;font-weight:700;flex:1}
+.command-category-count{font-size:11px;color:var(--color-text-dim)}
+.command-category-chevron{color:var(--color-text-dim);font-size:13px;transition:transform .2s}
+.command-category.open .command-category-chevron{transform:rotate(90deg)}
+.command-category-body{display:none}
+.command-category.open .command-category-body{display:block}
+.command-item{padding:11px 13px;margin:0 8px 6px;border-radius:8px;border:1px solid var(--color-border);background:var(--color-surface-mid);display:flex;align-items:center;gap:10px;cursor:pointer;min-height:50px;transition:background .12s}
+.command-item:first-child{margin-top:8px}
+.command-item:last-child{margin-bottom:8px}
+.command-item:active{background:var(--color-surface-high)}
+.command-item-info{flex:1}
+.command-item-name{font-size:14px;font-weight:700}
+.command-item-subtitle{font-size:11px;color:var(--color-text-sub);margin-top:3px;font-family:var(--font-data)}
+.command-execute-icon{font-size:20px;color:var(--color-text-dim)}
+.command-execute-icon.destructive{color:var(--color-red)}
+
+/* ==============================================================
+   HOME
+   ============================================================== */
+.battery-bar{height:6px;background:var(--color-surface-high);border-radius:3px;overflow:hidden;margin:0 12px 10px}
+.battery-fill{height:100%;background:var(--color-teal);border-radius:3px}
+.scan-network-button{width:100%;height:44px;border-radius:8px;background:var(--color-teal-bg);border:1.5px solid var(--color-teal-border);color:var(--color-teal);font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:.8px;cursor:pointer;margin-bottom:8px}
+.scan-network-button:active{opacity:.75}
+.theme-setting-row{padding:10px 12px;border-bottom:1px solid var(--color-border);display:flex;align-items:center;justify-content:space-between}
+.theme-setting-row:last-child{border-bottom:none}
+.theme-setting-label{font-size:14px;color:var(--color-text-sub)}
+.theme-toggle-button{width:90px;height:32px;border-radius:7px;border:1.5px solid var(--color-border);background:var(--color-surface-mid);color:var(--color-text-sub);font-family:var(--font-ui);font-size:12px;font-weight:600;cursor:pointer}
+
+/* ==============================================================
+   MODAL DIALOG
+   ============================================================== */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal-dialog{background:var(--color-surface);border-radius:12px;border:1px solid var(--color-border);padding:18px;width:100%;max-width:440px}
+.modal-title{font-size:18px;font-weight:700;margin-bottom:4px}
+.modal-subtitle{font-size:13px;color:var(--color-text-sub);margin-bottom:14px}
+.modal-change-item{padding:7px 0;border-bottom:1px solid var(--color-border);font-size:13px}
+.modal-change-item:last-of-type{border-bottom:none;margin-bottom:4px}
+.modal-change-detail{font-family:var(--font-data);font-size:11px;color:var(--color-text-sub);margin-top:2px}
+.modal-warning{font-size:12px;color:var(--color-amber);padding:8px 10px;background:var(--color-amber-bg);border-radius:6px;margin:10px 0}
+.modal-button-row{display:flex;gap:8px;margin-top:14px}
+.modal-cancel-button{flex:1;height:42px;border-radius:7px;background:transparent;border:1.5px solid var(--color-border);color:var(--color-text-sub);font-family:var(--font-ui);font-size:14px;font-weight:600;cursor:pointer}
+.modal-confirm-button{flex:2;height:42px;border-radius:7px;background:var(--color-amber);color:#000;font-family:var(--font-ui);font-size:14px;font-weight:800;letter-spacing:.8px;border:none;cursor:pointer}
+
+/* ==============================================================
+   WARNINGS PAGE
+   ============================================================== */
+.warning-item{background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;padding:12px 14px;margin-bottom:8px}
+.warning-item-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.warning-item-name{font-size:15px;font-weight:600}
+.warning-item-desc{font-size:12px;color:var(--color-text-sub);margin-bottom:10px}
+.warning-threshold-row{display:flex;align-items:center;gap:10px;margin-top:8px}
+.warning-threshold-label{font-size:12px;color:var(--color-text-sub);width:60px;flex-shrink:0}
+.warning-threshold-input{flex:1;height:34px;border-radius:6px;border:1.5px solid var(--color-border);background:var(--color-surface-mid);color:var(--color-text);font-family:var(--font-data);font-size:14px;padding:0 10px;outline:none}
+.warning-threshold-input:focus{border-color:var(--color-amber)}
+.warning-threshold-unit{font-size:12px;color:var(--color-text-dim);flex-shrink:0;width:28px}
+
+/* ==============================================================
+   TOAST
+   ============================================================== */
+.toast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--color-surface-high);border:1px solid var(--color-border-mid);color:var(--color-text);font-size:13px;font-weight:600;padding:9px 16px;border-radius:20px;opacity:0;transition:all .25s;z-index:200;white-space:nowrap;pointer-events:none}
+.toast.visible{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     STATUS BAR
+     ═══════════════════════════════════════════════════════════ -->
+<div class="status-bar">
+  <div class="status-dot"></div>
+  <span class="status-text" id="status-text">3 processors &middot; 540 tiles</span>
+  <button class="status-reconnect-btn" onclick="toast('Reconnecting all processors...')" title="Reconnect all">&#8635;</button>
+</div>
+
+<!-- ALERT BARS -->
+<div class="alert-bar type-blackout" id="alert-blackout" onclick="dismissAlert('blackout')">&#9646; BLACKOUT ACTIVE <span style="font-size:11px;opacity:.7">TAP TO DISMISS</span></div>
+<div class="alert-bar type-freeze" id="alert-freeze" onclick="dismissAlert('freeze')">&#10052; FREEZE ACTIVE <span style="font-size:11px;opacity:.7">TAP TO DISMISS</span></div>
+<div class="alert-bar type-pattern" id="alert-pattern" onclick="dismissAlert('pattern')"><span id="alert-pattern-label">&#9679; TEST ACTIVE</span> <span style="font-size:11px;opacity:.7">TAP TO DISMISS</span></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MAIN SCROLL — all pages live here
+     ═══════════════════════════════════════════════════════════ -->
+<div class="main-scroll">
+
+<!-- ═══ HOME ═══ -->
+<div class="page" id="page-home"><div class="page-content">
+  <div style="padding:12px 0 4px;font-size:22px;font-weight:700;color:var(--color-amber)">Diagnostic Tool</div>
+  <div class="data" style="font-size:12px;color:var(--color-text-sub);margin-bottom:12px">v11.0.0 &middot; DB rev 24 &middot; 2026-04-14</div>
+  <div class="card">
+    <div class="card-header">Power</div>
+    <div class="data-row"><span class="row-label">Battery</span><span class="row-value ok">78% &middot; ~3h 20m</span></div>
+    <div class="battery-bar"><div class="battery-fill" style="width:78%"></div></div>
+  </div>
+  <div class="card">
+    <div class="card-header">Connectivity</div>
+    <div class="data-row"><span class="row-label">Ethernet</span><span class="row-value warn">No link</span></div>
+    <div class="data-row tappable" onclick="toast('WiFi AP config')"><span class="row-label">WiFi AP</span><span class="row-value ok data" style="font-size:11px">NovaTool &middot; 2 clients &#8250;</span></div>
+    <div class="data-row tappable" onclick="toast('WiFi client config')"><span class="row-label">WiFi Client</span><span class="row-value" style="color:var(--color-text-sub)">Not connected &#8250;</span></div>
+    <div class="data-row"><span class="row-label">USB</span><span class="row-value" style="color:var(--color-text-sub)">Empty</span></div>
+  </div>
+  <div class="card">
+    <div class="card-header">Network</div>
+    <div class="data-row tappable" onclick="toast('IP mode settings')"><span class="row-label">Mode</span><span class="row-value">Auto &#8250;</span></div>
+    <div class="data-row tappable" onclick="toast('Edit IP address')"><span class="row-label">IP</span><span class="row-value data" style="font-size:11px">192.168.0.100 /24 &#8250;</span></div>
+  </div>
+  <div class="card">
+    <div class="card-header">Storage</div>
+    <div class="data-row"><span class="row-label">Saved RCFGs</span><span class="row-value">12</span></div>
+    <div class="data-row"><span class="row-label">Auto-backups</span><span class="row-value">8</span></div>
+    <div class="data-row"><span class="row-label">Free space</span><span class="row-value ok">13.2 GB</span></div>
+  </div>
+  <div class="card">
+    <div class="card-header">Display &amp; Theme</div>
+    <div class="theme-setting-row"><span class="theme-setting-label">Theme</span><button class="theme-toggle-button" id="theme-toggle-btn" onclick="toggleTheme()">&#9789; Dark</button></div>
+    <div class="theme-setting-row"><span class="theme-setting-label">LCD Brightness</span><span class="row-value ok">80%</span></div>
+  </div>
+  <div class="card">
+    <div class="card-header">Connection History</div>
+    <div class="data-row tappable" onclick="toast('Reconnecting to VX4S...')"><span class="row-label data" style="font-size:11px">VX4S &middot; USB &middot; 2m ago</span><span style="color:var(--color-teal);font-size:16px">&#8635;</span></div>
+    <div class="data-row tappable" onclick="toast('Reconnecting to MCTRL660...')"><span class="row-label data" style="font-size:11px">MCTRL660 &middot; NET 192.168.0.12 &middot; 1h ago</span><span style="color:var(--color-teal);font-size:16px">&#8635;</span></div>
+  </div>
+  <button class="scan-network-button" onclick="toast('Scanning subnet 192.168.0.x...')">&#8635; Scan Network</button>
+  <div class="page-bottom-spacer"></div>
+</div></div>
+
+<!-- ═══ OVERVIEW ═══ -->
+<div class="page active" id="page-overview"><div class="page-content">
+
+  <!-- VX4S -->
+  <div class="processor-card" id="processor-vx4s" onclick="selectProcessor('processor-vx4s', event)">
+    <div class="processor-summary">
+      <span class="processor-chevron">&#9654;</span>
+      <div class="processor-status-dot"></div>
+      <div class="processor-info">
+        <div class="processor-name">VX4S <span class="badge conn-badge-usb">USB</span></div>
+        <div class="processor-summary-line"><span class="data" style="font-size:11px;color:var(--color-text-dim)">USB &middot; /dev/ttyUSB0</span></div>
+        <div class="processor-summary-line"><span>Screen 1, Screen 2</span><span>FW v4.5.2</span><span>48 tiles</span><span class="mismatch">2 mismatch</span></div>
+        <div class="processor-summary-line"><span class="signal">&#9679; HDMI 1 &middot; 1080p60</span></div>
+      </div>
+    </div>
+    <div class="processor-body">
+      <div class="processor-input-row" onclick="toast('Input picker')">
+        <div class="input-row-main"><div class="signal-dot"></div><span>HDMI 1 &middot; <span class="display-mode-label">Normal</span> &middot; <span style="color:var(--color-amber)">100%</span></span><span style="margin-left:auto;color:var(--color-text-dim);font-size:13px">&#9660;</span></div>
+        <div class="input-row-res">1920 &times; 1080 @ 60 Hz</div>
+      </div>
+      <div class="port-section">
+        <div class="port-label" id="vx4s-port-label" onclick="togglePortList('vx4s-port-list','vx4s-port-label',event)">PORTS &#9654; <span style="font-size:10px;opacity:.6">TAP TO EXPAND</span></div>
+        <div class="port-dots-row">
+          <div class="port-dot healthy" onclick="openPortDetail(1)">1</div>
+          <div class="port-dot mismatch" onclick="openPortDetail(2)">2</div>
+          <div class="port-dot empty">3</div>
+          <div class="port-dot empty redundant" title="Redundant (backup) port">4</div>
+        </div>
+        <div id="vx4s-port-list" style="display:none">
+          <div class="port-detail-list">
+            <div class="port-detail-row" onclick="openPortDetail(1)"><div class="port-detail-number healthy">1</div><div class="port-detail-info"><div class="port-detail-primary">24 tiles &middot; 192&times;192</div><div class="port-detail-secondary">MRV300 v3.8.1 &middot; 38&ndash;44&deg;C</div></div><span class="status-pill ok">OK</span><span class="config-row-arrow">&#8250;</span></div>
+            <div class="port-detail-row" onclick="openPortDetail(2)"><div class="port-detail-number mismatch">2</div><div class="port-detail-info"><div class="port-detail-primary">24 tiles &middot; 192&times;384</div><div class="port-detail-secondary">MRV330 v3.6.0 &middot; 41&ndash;47&deg;C</div></div><span class="status-pill mismatch">2 MIS</span><span class="config-row-arrow">&#8250;</span></div>
+            <div class="port-detail-row"><div class="port-detail-number empty">3</div><div class="port-detail-info"><div class="port-detail-primary" style="color:var(--color-text-dim)">Empty</div></div></div>
+            <div class="port-detail-row"><div class="port-detail-number empty">4</div><div class="port-detail-info"><div class="port-detail-primary" style="color:var(--color-text-dim)">Empty</div></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="processor-footer"><span>48 tiles</span><span>Avg <span class="data">42&deg;C</span></span><span style="color:var(--color-amber)">2 mismatch</span><span style="margin-left:auto">Cal <span class="cal-status-badge" style="color:var(--color-blue)">ON</span></span></div>
+    </div>
+  </div>
+
+  <!-- MCTRL660 -->
+  <div class="processor-card" id="processor-mctrl660" onclick="selectProcessor('processor-mctrl660', event)">
+    <div class="processor-summary">
+      <span class="processor-chevron">&#9654;</span>
+      <div class="processor-status-dot"></div>
+      <div class="processor-info">
+        <div class="processor-name">MCTRL660 <span class="badge conn-badge-net">NET</span> <span class="data" style="font-size:10px;color:var(--color-text-sub)">192.168.0.12</span></div>
+        <div class="processor-summary-line"><span>Screen 1</span><span>FW v3.2.0</span><span>12 tiles</span></div>
+        <div class="processor-summary-line"><span class="signal">&#9679; HDMI 1 &middot; 1080p60</span></div>
+      </div>
+    </div>
+    <div class="processor-body">
+      <div class="processor-input-row" onclick="toast('Input picker')">
+        <div class="input-row-main"><div class="signal-dot"></div><span>HDMI 1 &middot; <span class="display-mode-label">Normal</span> &middot; <span style="color:var(--color-amber)">80%</span></span><span style="margin-left:auto;color:var(--color-text-dim);font-size:13px">&#9660;</span></div>
+        <div class="input-row-res">1920 &times; 1080 @ 60 Hz</div>
+      </div>
+      <div class="port-section">
+        <div class="port-label">PORTS</div>
+        <div class="port-dots-row">
+          <div class="port-dot healthy" onclick="openPortDetail(1)">1</div>
+          <div class="port-dot healthy" onclick="openPortDetail(2)">2</div>
+          <div class="port-dot empty">3</div>
+          <div class="port-dot empty">4</div>
+          <div class="port-dot empty">5</div>
+          <div class="port-dot empty">6</div>
+        </div>
+      </div>
+      <div class="processor-footer"><span>12 tiles</span><span>Avg <span class="data">39&deg;C</span></span><span style="color:var(--color-teal)">All OK</span></div>
+    </div>
+  </div>
+
+  <!-- VX2000: 20 ports, split into two rows of 10 -->
+  <div class="processor-card" id="processor-vx2000" onclick="selectProcessor('processor-vx2000', event)">
+    <div class="processor-summary">
+      <span class="processor-chevron">&#9654;</span>
+      <div class="processor-status-dot"></div>
+      <div class="processor-info">
+        <div class="processor-name">VX2000 <span class="badge conn-badge-net">NET</span> <span class="data" style="font-size:10px;color:var(--color-text-sub)">192.168.0.22</span></div>
+        <div class="processor-summary-line"><span>Screen 1</span><span>FW v2.1.4</span><span>480 tiles</span><span class="mismatch">4 mismatch</span></div>
+        <div class="processor-summary-line"><span class="signal">&#9679; DP 1 &middot; 4K@60</span></div>
+      </div>
+    </div>
+    <div class="processor-body">
+      <div class="processor-input-row" onclick="toast('Input picker')">
+        <div class="input-row-main"><div class="signal-dot"></div><span>DP 1 &middot; <span class="display-mode-label">Normal</span> &middot; <span style="color:var(--color-amber)">75%</span></span><span style="margin-left:auto;color:var(--color-text-dim);font-size:13px">&#9660;</span></div>
+        <div class="input-row-res">3840 &times; 2160 @ 60 Hz</div>
+      </div>
+      <div class="port-section">
+        <div class="port-label" id="vx2000-port-label" onclick="togglePortList('vx2000-port-list','vx2000-port-label',event)">PORTS &#9654; <span style="font-size:10px;opacity:.6">TAP TO EXPAND</span></div>
+        <!-- Row 1: ports 1-10 -->
+        <div class="port-dots-row">
+          <div class="port-dot healthy" onclick="openPortDetail(1)">1</div>
+          <div class="port-dot healthy" onclick="openPortDetail(2)">2</div>
+          <div class="port-dot healthy" onclick="openPortDetail(3)">3</div>
+          <div class="port-dot healthy" onclick="openPortDetail(4)">4</div>
+          <div class="port-dot healthy redundant" onclick="openPortDetail(5)" title="Redundant (backup) port">5</div>
+          <div class="port-dot healthy" onclick="openPortDetail(6)">6</div>
+          <div class="port-dot healthy" onclick="openPortDetail(7)">7</div>
+          <div class="port-dot healthy" onclick="openPortDetail(8)">8</div>
+          <div class="port-dot mismatch" onclick="openPortDetail(9)">9</div>
+          <div class="port-dot mismatch" onclick="openPortDetail(10)">10</div>
+        </div>
+        <!-- Row 2: ports 11-20 -->
+        <div class="port-dots-row">
+          <div class="port-dot healthy" onclick="openPortDetail(11)">11</div>
+          <div class="port-dot healthy" onclick="openPortDetail(12)">12</div>
+          <div class="port-dot healthy" onclick="openPortDetail(13)">13</div>
+          <div class="port-dot mismatch" onclick="openPortDetail(14)">14</div>
+          <div class="port-dot healthy" onclick="openPortDetail(15)">15</div>
+          <div class="port-dot healthy" onclick="openPortDetail(16)">16</div>
+          <div class="port-dot empty">17</div>
+          <div class="port-dot mismatch" onclick="openPortDetail(18)">18</div>
+          <div class="port-dot empty">19</div>
+          <div class="port-dot empty">20</div>
+        </div>
+        <div id="vx2000-port-list" style="display:none">
+          <div class="port-detail-list">
+            <div class="port-detail-row" onclick="openPortDetail(9)"><div class="port-detail-number mismatch">9</div><div class="port-detail-info"><div class="port-detail-primary">24 tiles &middot; 192&times;192</div><div class="port-detail-secondary">MRV300 v3.7.0 &middot; 41&ndash;49&deg;C</div></div><span class="status-pill mismatch">1 MIS</span><span class="config-row-arrow">&#8250;</span></div>
+            <div class="port-detail-row" onclick="openPortDetail(10)"><div class="port-detail-number mismatch">10</div><div class="port-detail-info"><div class="port-detail-primary">24 tiles &middot; 192&times;192</div><div class="port-detail-secondary">MRV300 v3.8.1 &middot; 39&ndash;45&deg;C</div></div><span class="status-pill mismatch">1 MIS</span><span class="config-row-arrow">&#8250;</span></div>
+            <div class="port-detail-row" onclick="openPortDetail(14)"><div class="port-detail-number mismatch">14</div><div class="port-detail-info"><div class="port-detail-primary">24 tiles &middot; 192&times;192</div><div class="port-detail-secondary">MRV300 v3.8.1 &middot; 38&ndash;44&deg;C</div></div><span class="status-pill mismatch">2 MIS</span><span class="config-row-arrow">&#8250;</span></div>
+            <div class="port-detail-row" onclick="openPortDetail(18)"><div class="port-detail-number mismatch">18</div><div class="port-detail-info"><div class="port-detail-primary">24 tiles &middot; 192&times;192</div><div class="port-detail-secondary">MRV300 v3.6.0 &middot; 43&ndash;51&deg;C</div></div><span class="status-pill mismatch">1 MIS</span><span class="config-row-arrow">&#8250;</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="processor-footer"><span>480 tiles</span><span>Avg <span class="data">44&deg;C</span></span><span style="color:var(--color-amber)">4 mismatch</span></div>
+    </div>
+  </div>
+
+  <!-- QUICK ACTIONS -->
+  <div class="quick-actions disabled" id="quick-actions-container">
+    <div class="quick-actions-header">Quick Actions</div>
+    <div class="quick-actions-hint" id="quick-actions-hint">Select a processor above</div>
+    <div class="action-button-row">
+      <button class="action-button" id="btn-blackout" onclick="toggleBlackout()">&#9646; Blackout</button>
+      <button class="action-button" id="btn-freeze" onclick="toggleFreeze()">&#10052; Freeze</button>
+      <button class="action-button active-blue" id="btn-calibration" onclick="cycleCalibration()">&#9672; Cal <span id="cal-button-label">ON</span></button>
+    </div>
+    <div class="action-button-row">
+      <button class="action-button" id="btn-test-pattern" onclick="toggleTestPatternPopup()">&#8863; Test Pattern</button>
+      <button class="action-button" id="btn-port-mapping" onclick="togglePortMapping()">&#8853; Port Map</button>
+      <button class="action-button" onclick="toast('Revert: behavior TBD')">&#8635; Revert</button>
+    </div>
+    <!-- Test pattern popup: fits within quick-actions container -->
+    <div class="pattern-popup" id="test-pattern-popup">
+      <div class="pattern-popup-colors">
+        <button class="pattern-popup-color" onclick="quickPattern('white')" style="background:#f0f2f5;color:#000">White</button>
+        <button class="pattern-popup-color" onclick="quickPattern('red')" style="background:#ff3333;color:#fff">Red</button>
+        <button class="pattern-popup-color" onclick="quickPattern('green')" style="background:#33cc66;color:#fff">Green</button>
+        <button class="pattern-popup-color" onclick="quickPattern('blue')" style="background:#3399ff;color:#fff">Blue</button>
+      </div>
+      <button class="pattern-popup-more" onclick="goToPatterns()">More patterns &#8250;</button>
+    </div>
+  </div>
+
+  <button class="scan-network-button" style="margin-top:2px" onclick="runDeepScan()">&#9107; Deep Scan All</button>
+  <div class="page-bottom-spacer"></div>
+</div></div>
+
+<!-- ═══ CONTROL ═══ -->
+<div class="page" id="page-control"><div class="page-content">
+  <div class="screen-selector" style="margin-bottom:10px">
+    <div class="screen-selector-header"><span>SENDING TO</span><span class="selection-count" id="control-screen-count" style="color:var(--color-amber)">4/4 screens</span></div>
+    <div class="screen-chips" id="control-screen-chips">
+      <div class="screen-chip" data-index="0" onclick="toggleScreenSelection('control',0)"><div class="screen-chip-name">Screen 1</div><div class="screen-chip-subtitle">VX4S &middot; USB</div></div>
+      <div class="screen-chip" data-index="1" onclick="toggleScreenSelection('control',1)"><div class="screen-chip-name">Screen 2</div><div class="screen-chip-subtitle">VX4S &middot; USB</div></div>
+      <div class="screen-chip" data-index="2" onclick="toggleScreenSelection('control',2)"><div class="screen-chip-name">Screen 1</div><div class="screen-chip-subtitle">MCTRL660 &middot; .0.12</div></div>
+      <div class="screen-chip" data-index="3" onclick="toggleScreenSelection('control',3)"><div class="screen-chip-name">Screen 1</div><div class="screen-chip-subtitle">VX2000 &middot; .0.22</div></div>
+    </div>
+  </div>
+
+  <div class="section-label" style="margin-top:4px">Brightness &amp; Gamma</div>
+  <div class="slider-card">
+    <div class="slider-header"><span class="slider-label">Brightness</span><span class="slider-value amber data" id="brightness-display">85%</span></div>
+    <div class="slider-track" id="brightness-track" onmousedown="startSliderDrag('brightness',event)" ontouchstart="startSliderDrag('brightness',event)"><div class="slider-fill amber" id="brightness-fill" style="width:85%"></div><div class="slider-thumb amber" id="brightness-thumb" style="left:85%"></div></div>
+  </div>
+  <div class="slider-card">
+    <div class="slider-header"><span class="slider-label">Gamma</span><span class="slider-value teal data" id="gamma-display">2.6</span></div>
+    <div class="slider-track" id="gamma-track" onmousedown="startSliderDrag('gamma',event)" ontouchstart="startSliderDrag('gamma',event)"><div class="slider-fill teal" id="gamma-fill" style="width:65%"></div><div class="slider-thumb teal" id="gamma-thumb" style="left:65%"></div></div>
+  </div>
+
+  <div class="section-label">Calibration</div>
+  <div class="toggle-row">
+    <div class="toggle-info"><div class="toggle-name">Calibration</div><div class="toggle-subtitle" id="cal-toggle-subtitle">Brightness + Color active</div></div>
+    <div class="toggle-switch on" id="cal-toggle" onclick="cycleCalibration()"><div class="toggle-knob"></div></div>
+  </div>
+  <div class="toggle-row">
+    <div class="toggle-info"><div class="toggle-name">Thermal Compensation</div><div class="toggle-subtitle">Auto-adjusts color for temperature changes</div></div>
+    <div class="toggle-switch on" id="thermal-toggle" onclick="toggleSwitch('thermal-toggle')"><div class="toggle-knob"></div></div>
+  </div>
+
+  <div class="section-label">Test Patterns</div>
+  <div class="pattern-grid">
+    <button class="pattern-button" data-pattern="off" onclick="selectPattern('off')"><span class="pattern-icon" style="color:var(--color-text-dim)">&#9898;</span><span class="pattern-label">Normal</span></button>
+    <button class="pattern-button" data-pattern="white" onclick="selectPattern('white')"><div class="pattern-color-swatch" style="background:#f0f2f5;border:2px solid #aaa"></div><span class="pattern-label">White</span></button>
+    <button class="pattern-button" data-pattern="black" onclick="selectPattern('black')"><span class="pattern-icon" style="color:#333">&#9899;</span><span class="pattern-label">Black</span></button>
+    <button class="pattern-button" data-pattern="gray" onclick="selectPattern('gray')"><div class="pattern-color-swatch" style="background:#888;border:2px solid #888"></div><span class="pattern-label">Gray 50%</span></button>
+    <button class="pattern-button" data-pattern="red" onclick="selectPattern('red')"><div class="pattern-color-swatch" style="background:#ff3333;border:2px solid #ff3333"></div><span class="pattern-label">Red</span></button>
+    <button class="pattern-button" data-pattern="green" onclick="selectPattern('green')"><div class="pattern-color-swatch" style="background:#33cc66;border:2px solid #33cc66"></div><span class="pattern-label">Green</span></button>
+    <button class="pattern-button" data-pattern="blue" onclick="selectPattern('blue')"><div class="pattern-color-swatch" style="background:#3399ff;border:2px solid #3399ff"></div><span class="pattern-label">Blue</span></button>
+    <button class="pattern-button" data-pattern="gradient" onclick="selectPattern('gradient')"><span class="pattern-icon">&#9685;</span><span class="pattern-label">Gradient</span></button>
+    <button class="pattern-button" data-pattern="grid" onclick="selectPattern('grid')"><span class="pattern-icon">&#8862;</span><span class="pattern-label">Grid</span></button>
+    <button class="pattern-button" data-pattern="hline" onclick="selectPattern('hline')"><span class="pattern-icon">&#8801;</span><span class="pattern-label">H-Line</span></button>
+    <button class="pattern-button" data-pattern="vline" onclick="selectPattern('vline')"><span class="pattern-icon">&#8214;</span><span class="pattern-label">V-Line</span></button>
+    <button class="pattern-button" data-pattern="moving" onclick="selectPattern('moving')"><span class="pattern-icon">&#8594;</span><span class="pattern-label">Moving</span></button>
+  </div>
+
+  <div class="section-label">Color Temperature</div>
+  <div class="slider-card" id="color-temp-card">
+    <div class="slider-header"><span class="slider-label">Color Temp</span><span class="slider-value teal data" id="color-temp-display">6500K</span></div>
+    <div id="color-temp-normal">
+      <div class="color-temp-preset-row">
+        <button class="color-temp-preset" data-kelvin="3200" onclick="setColorTempPreset(3200,this)">3200K</button>
+        <button class="color-temp-preset" data-kelvin="5600" onclick="setColorTempPreset(5600,this)">5600K</button>
+        <button class="color-temp-preset active" data-kelvin="6500" onclick="setColorTempPreset(6500,this)">6500K</button>
+        <button class="color-temp-preset" data-kelvin="9300" onclick="setColorTempPreset(9300,this)">9300K</button>
+      </div>
+      <div class="slider-with-buttons">
+        <button class="adjust-button" onclick="stepColorTemp(-100)">&#8722;</button>
+        <div class="slider-track" id="color-temp-track" onmousedown="startSliderDrag('color-temp',event)" ontouchstart="startSliderDrag('color-temp',event)"><div class="slider-fill teal" id="color-temp-fill" style="width:54%"></div><div class="slider-thumb teal" id="color-temp-thumb" style="left:54%"></div></div>
+        <button class="adjust-button" onclick="stepColorTemp(100)">&#43;</button>
+      </div>
+    </div>
+    <div id="color-temp-override" style="display:none">
+      <div style="padding:8px 0;font-size:13px;color:var(--color-text-sub)">N/A &mdash; manual RGB gain active</div>
+      <button class="color-temp-reset-button" onclick="resetColorTemp()">Reset to Color Temp</button>
+    </div>
+  </div>
+
+  <!-- RGB Gains above Brightness per pending-changes.md -->
+  <div class="section-label">RGB Gains</div>
+  <div class="rgb-card">
+    <div class="rgb-channel-row">
+      <div class="rgb-channel-header"><span class="rgb-channel-label" style="color:#ff5252">Red</span><span class="rgb-channel-value data" id="rgb-gain-red-display">100%</span></div>
+      <div class="slider-with-buttons"><button class="adjust-button" onclick="adjustRGBGain('red',-1)">&#8722;</button><div class="rgb-track" style="background:rgba(255,82,82,.15)" id="rgb-gain-red-track" onmousedown="startSliderDrag('rgb-gain-red',event)" ontouchstart="startSliderDrag('rgb-gain-red',event)"><div class="rgb-fill" id="rgb-gain-red-fill" style="width:100%;background:#ff5252"></div><div class="rgb-thumb" id="rgb-gain-red-thumb" style="left:100%;border-color:#ff5252"></div></div><button class="adjust-button" onclick="adjustRGBGain('red',1)">&#43;</button></div>
+    </div>
+    <div class="rgb-channel-row">
+      <div class="rgb-channel-header"><span class="rgb-channel-label" style="color:#33cc66">Green</span><span class="rgb-channel-value data" id="rgb-gain-green-display">100%</span></div>
+      <div class="slider-with-buttons"><button class="adjust-button" onclick="adjustRGBGain('green',-1)">&#8722;</button><div class="rgb-track" style="background:rgba(51,204,102,.15)" id="rgb-gain-green-track" onmousedown="startSliderDrag('rgb-gain-green',event)" ontouchstart="startSliderDrag('rgb-gain-green',event)"><div class="rgb-fill" id="rgb-gain-green-fill" style="width:100%;background:#33cc66"></div><div class="rgb-thumb" id="rgb-gain-green-thumb" style="left:100%;border-color:#33cc66"></div></div><button class="adjust-button" onclick="adjustRGBGain('green',1)">&#43;</button></div>
+    </div>
+    <div class="rgb-channel-row">
+      <div class="rgb-channel-header"><span class="rgb-channel-label" style="color:#3399ff">Blue</span><span class="rgb-channel-value data" id="rgb-gain-blue-display">100%</span></div>
+      <div class="slider-with-buttons"><button class="adjust-button" onclick="adjustRGBGain('blue',-1)">&#8722;</button><div class="rgb-track" style="background:rgba(51,153,255,.15)" id="rgb-gain-blue-track" onmousedown="startSliderDrag('rgb-gain-blue',event)" ontouchstart="startSliderDrag('rgb-gain-blue',event)"><div class="rgb-fill" id="rgb-gain-blue-fill" style="width:100%;background:#3399ff"></div><div class="rgb-thumb" id="rgb-gain-blue-thumb" style="left:100%;border-color:#3399ff"></div></div><button class="adjust-button" onclick="adjustRGBGain('blue',1)">&#43;</button></div>
+    </div>
+  </div>
+
+  <div class="section-label">RGB Brightness</div>
+  <div class="rgb-card">
+    <div class="rgb-channel-row">
+      <div class="rgb-channel-header"><span class="rgb-channel-label" style="color:#ff5252">Red</span><span class="rgb-channel-value data" id="rgb-bri-red-display">100%</span></div>
+      <div class="slider-with-buttons"><button class="adjust-button" onclick="adjustRGBBrightness('red',-1)">&#8722;</button><div class="rgb-track" style="background:rgba(255,82,82,.15)" id="rgb-bri-red-track" onmousedown="startSliderDrag('rgb-bri-red',event)" ontouchstart="startSliderDrag('rgb-bri-red',event)"><div class="rgb-fill" id="rgb-bri-red-fill" style="width:100%;background:#ff5252"></div><div class="rgb-thumb" id="rgb-bri-red-thumb" style="left:100%;border-color:#ff5252"></div></div><button class="adjust-button" onclick="adjustRGBBrightness('red',1)">&#43;</button></div>
+    </div>
+    <div class="rgb-channel-row">
+      <div class="rgb-channel-header"><span class="rgb-channel-label" style="color:#33cc66">Green</span><span class="rgb-channel-value data" id="rgb-bri-green-display">100%</span></div>
+      <div class="slider-with-buttons"><button class="adjust-button" onclick="adjustRGBBrightness('green',-1)">&#8722;</button><div class="rgb-track" style="background:rgba(51,204,102,.15)" id="rgb-bri-green-track" onmousedown="startSliderDrag('rgb-bri-green',event)" ontouchstart="startSliderDrag('rgb-bri-green',event)"><div class="rgb-fill" id="rgb-bri-green-fill" style="width:100%;background:#33cc66"></div><div class="rgb-thumb" id="rgb-bri-green-thumb" style="left:100%;border-color:#33cc66"></div></div><button class="adjust-button" onclick="adjustRGBBrightness('green',1)">&#43;</button></div>
+    </div>
+    <div class="rgb-channel-row">
+      <div class="rgb-channel-header"><span class="rgb-channel-label" style="color:#3399ff">Blue</span><span class="rgb-channel-value data" id="rgb-bri-blue-display">100%</span></div>
+      <div class="slider-with-buttons"><button class="adjust-button" onclick="adjustRGBBrightness('blue',-1)">&#8722;</button><div class="rgb-track" style="background:rgba(51,153,255,.15)" id="rgb-bri-blue-track" onmousedown="startSliderDrag('rgb-bri-blue',event)" ontouchstart="startSliderDrag('rgb-bri-blue',event)"><div class="rgb-fill" id="rgb-bri-blue-fill" style="width:100%;background:#3399ff"></div><div class="rgb-thumb" id="rgb-bri-blue-thumb" style="left:100%;border-color:#3399ff"></div></div><button class="adjust-button" onclick="adjustRGBBrightness('blue',1)">&#43;</button></div>
+    </div>
+  </div>
+  <div class="page-bottom-spacer"></div>
+</div></div>
+
+<!-- ═══ SAVE ═══ -->
+<div class="page" id="page-save"><div class="page-content">
+  <p style="font-size:13px;color:var(--color-text-sub);margin-bottom:10px">Changes live in RAM. Write to flash to persist across power cycles.</p>
+  <div class="save-processor-section">
+    <div class="save-processor-header"><span class="save-processor-name">VX4S <span class="badge conn-badge-usb" style="font-size:9px;vertical-align:middle">USB</span></span><span class="save-change-count" id="save-change-count">3 CHANGES</span></div>
+    <div class="save-change-item"><div class="save-checkbox checked" data-change-index="0" onclick="toggleSaveCheckbox(0)">&#10003;</div><div class="save-change-info"><div class="save-change-name">Brightness &mdash; Screen 1</div><div class="save-change-detail">100% &rarr; 85%</div></div><span class="save-change-status">PENDING</span></div>
+    <div class="save-change-item"><div class="save-checkbox checked" data-change-index="1" onclick="toggleSaveCheckbox(1)">&#10003;</div><div class="save-change-info"><div class="save-change-name">Gamma &mdash; Screen 1</div><div class="save-change-detail">2.6 &rarr; 2.4</div></div><span class="save-change-status">PENDING</span></div>
+    <div class="save-change-item"><div class="save-checkbox checked" data-change-index="2" onclick="toggleSaveCheckbox(2)">&#10003;</div><div class="save-change-info"><div class="save-change-name">Calibration &mdash; Screen 2</div><div class="save-change-detail">ON &rarr; OFF</div></div><span class="save-change-status">PENDING</span></div>
+  </div>
+  <button class="save-to-flash-button" id="save-to-flash-btn" onclick="showSaveModal()">&#8679; Save to Hardware Flash</button>
+  <button class="revert-session-button" onclick="toast('Revert: behavior TBD')">&#8635; Revert Session</button>
+  <div class="page-bottom-spacer"></div>
+</div></div>
+
+<!-- ═══ CONFIG ═══ -->
+<div class="page" id="page-config"><div class="page-content">
+  <div class="section-label" style="margin-top:4px">RCFG Management</div>
+  <div class="config-row" onclick="toast('RCFG Audit: scanning 48 tiles...')"><div class="config-row-icon">&#8862;</div><div class="config-row-info"><div class="config-row-name">RCFG Audit</div><div class="config-row-subtitle">2 unique configs &middot; 2 mismatches</div></div><span class="badge badge-warn">2 MIS</span><span class="config-row-arrow">&#8250;</span></div>
+  <div class="config-row disabled"><div class="config-row-icon">&#8645;</div><div class="config-row-info"><div class="config-row-name">Sync Mismatched Tiles</div><div class="config-row-subtitle">Clone majority config to outliers</div></div><span class="config-row-arrow">&#8250;</span></div>
+  <div class="config-row disabled"><div class="config-row-icon">&#128193;</div><div class="config-row-info"><div class="config-row-name">Saved Configs Library</div><div class="config-row-subtitle">12 configs stored</div></div><span class="badge badge-ok">12</span><span class="config-row-arrow">&#8250;</span></div>
+  <div class="config-row disabled"><div class="config-row-icon">&#8679;</div><div class="config-row-info"><div class="config-row-name">USB Import / Export</div><div class="config-row-subtitle">Transfer configs via USB drive</div></div><span class="config-row-arrow">&#8250;</span></div>
+
+  <div class="section-label">EDID</div>
+  <div class="config-row" onclick="navTo('edid')"><div class="config-row-icon">&#8853;</div><div class="config-row-info"><div class="config-row-name">EDID Manager</div><div class="config-row-subtitle">Resolution &middot; frame rate &middot; per-input</div></div><span class="config-row-arrow">&#8250;</span></div>
+
+  <div class="section-label">Presets</div>
+  <div class="config-row disabled"><div class="config-row-icon">&#9733;</div><div class="config-row-info"><div class="config-row-name">Hardware Presets</div><div class="config-row-subtitle">P1&ndash;P8 slots on processor</div></div><span class="badge badge-warn">P1 active</span><span class="config-row-arrow">&#8250;</span></div>
+  <div class="config-row disabled"><div class="config-row-icon">&#9889;</div><div class="config-row-info"><div class="config-row-name">NovaTool Macros</div><div class="config-row-subtitle">Batch-apply across all processors</div></div><span class="config-row-arrow">&#8250;</span></div>
+
+  <div class="section-label">Warnings</div>
+  <div class="config-row" onclick="navTo('warnings')"><div class="config-row-icon">&#9888;</div><div class="config-row-info"><div class="config-row-name">Warning Thresholds</div><div class="config-row-subtitle">Temperature &middot; link errors &middot; RCFG &middot; firmware &middot; voltage</div></div><span class="config-row-arrow">&#8250;</span></div>
+
+  <div class="section-label">Commands</div>
+  <div class="config-row" onclick="navTo('commands')"><div class="config-row-icon">&#9881;</div><div class="config-row-info"><div class="config-row-name">All Commands</div><div class="config-row-subtitle">53 commands &middot; search &middot; execute</div></div><span class="config-row-arrow">&#8250;</span></div>
+
+  <div class="section-label">Monitoring</div>
+  <div class="config-row disabled"><div class="config-row-icon">&#127777;</div><div class="config-row-info"><div class="config-row-name">Temperature Map</div><div class="config-row-subtitle">Per-card temp &middot; 38&ndash;47&deg;C range</div></div><span class="config-row-arrow">&#8250;</span></div>
+  <div class="config-row disabled"><div class="config-row-icon">&#9889;</div><div class="config-row-info"><div class="config-row-name">Voltage &amp; Current</div><div class="config-row-subtitle">Per-card monitoring</div></div><span class="config-row-arrow">&#8250;</span></div>
+  <div class="config-row disabled"><div class="config-row-icon">&#9107;</div><div class="config-row-info"><div class="config-row-name">Firmware Audit</div><div class="config-row-subtitle">Version check across all cards</div></div><span class="config-row-arrow">&#8250;</span></div>
+  <div class="config-row disabled"><div class="config-row-icon">&#128247;</div><div class="config-row-info"><div class="config-row-name">Snapshot / Report</div><div class="config-row-subtitle">Export all settings as JSON</div></div><span class="config-row-arrow">&#8250;</span></div>
+  <div class="page-bottom-spacer"></div>
+</div></div>
+
+<!-- ═══ EDID (sub-page) ═══ -->
+<div class="page" id="page-edid"><div class="page-content">
+  <div class="sub-page-header"><button class="back-button" data-back-to="config">&#8592;</button><span class="sub-page-title">EDID Manager</span></div>
+
+  <div class="section-label" style="margin-top:0">Processor</div>
+  <div class="edid-processor-row">
+    <button class="edid-processor-chip active" onclick="activateOne('.edid-processor-chip',this)">VX4S</button>
+    <button class="edid-processor-chip" onclick="activateOne('.edid-processor-chip',this)">MCTRL660</button>
+    <button class="edid-processor-chip" onclick="activateOne('.edid-processor-chip',this)">VX2000</button>
+  </div>
+
+  <div class="section-label">Select Input</div>
+  <div class="edid-input-selector">
+    <div class="edid-input-button active" onclick="selectEdidInput(this)"><div class="edid-input-port-name">HDMI 1</div><div class="edid-input-resolution">1920&times;1080@60</div><div class="edid-input-signal">&#9679; signal</div></div>
+    <div class="edid-input-button" onclick="selectEdidInput(this)"><div class="edid-input-port-name">HDMI 2</div><div class="edid-input-resolution">no signal</div></div>
+    <div class="edid-input-button" onclick="selectEdidInput(this)"><div class="edid-input-port-name">DP 1</div><div class="edid-input-resolution">3840&times;2160@60</div><div class="edid-input-signal">&#9679; signal</div></div>
+    <div class="edid-input-button" onclick="selectEdidInput(this)"><div class="edid-input-port-name">DVI</div><div class="edid-input-resolution">no signal</div></div>
+  </div>
+
+  <div class="section-label">Standard Resolutions</div>
+  <div class="edid-resolution-presets">
+    <div class="edid-resolution-preset active" onclick="selectEdidPreset(this,'1920','1080')"><div class="edid-preset-resolution">1920&times;1080</div><div class="edid-preset-label">1080p</div></div>
+    <div class="edid-resolution-preset" onclick="selectEdidPreset(this,'3840','2160')"><div class="edid-preset-resolution">3840&times;2160</div><div class="edid-preset-label">4K UHD</div></div>
+    <div class="edid-resolution-preset" onclick="selectEdidPreset(this,'2048','1080')"><div class="edid-preset-resolution">2048&times;1080</div><div class="edid-preset-label">DCI 2K</div></div>
+    <div class="edid-resolution-preset" onclick="selectEdidPreset(this,'4096','2160')"><div class="edid-preset-resolution">4096&times;2160</div><div class="edid-preset-label">DCI 4K</div></div>
+    <div class="edid-resolution-preset" onclick="selectEdidPreset(this,'2304','1152')"><div class="edid-preset-resolution">2304&times;1152</div><div class="edid-preset-label">LED native</div></div>
+    <div class="edid-resolution-preset" onclick="selectEdidPreset(this,'1280','720')"><div class="edid-preset-resolution">1280&times;720</div><div class="edid-preset-label">720p</div></div>
+  </div>
+
+  <div class="section-label">Custom Resolution</div>
+  <div class="edid-custom-fields">
+    <div class="edid-field-row">
+      <span class="edid-field-label">W</span>
+      <input class="edid-field-input" id="edid-width" type="number" value="1920">
+      <span class="edid-field-unit">px</span>
+      <span class="edid-field-label" style="margin-left:8px">H</span>
+      <input class="edid-field-input" id="edid-height" type="number" value="1080">
+      <span class="edid-field-unit">px</span>
+    </div>
+  </div>
+
+  <div class="edid-match-to-wall"><div class="edid-match-description">&#9632; Match to wall: Screen 1 is 2304&times;1152</div><button class="edid-match-button" onclick="matchToWall(2304,1152)">Match to Screen 1</button></div>
+
+  <div class="section-label">Frame Rate</div>
+  <div class="fps-button-grid">
+    <button class="fps-button" onclick="selectFPS(this)">23.976</button>
+    <button class="fps-button" onclick="selectFPS(this)">24</button>
+    <button class="fps-button" onclick="selectFPS(this)">25</button>
+    <button class="fps-button" onclick="selectFPS(this)">29.97</button>
+    <button class="fps-button" onclick="selectFPS(this)">30</button>
+    <button class="fps-button" onclick="selectFPS(this)">50</button>
+    <button class="fps-button" onclick="selectFPS(this)">59.94</button>
+    <button class="fps-button active" onclick="selectFPS(this)">60</button>
+  </div>
+  <button class="primary-action-button" onclick="applyEdid()">Apply to HDMI 1</button>
+  <div class="page-bottom-spacer"></div>
+</div></div>
+
+<!-- ═══ COMMANDS (sub-page) ═══ -->
+<div class="page" id="page-commands"><div class="page-content">
+  <div class="sub-page-header"><button class="back-button" data-back-to="config">&#8592;</button><span class="sub-page-title">All Commands</span></div>
+  <input class="command-search" type="text" placeholder="&#128269; Search commands..." oninput="filterCommands(this.value)">
+  <div id="command-list">
+
+  <div class="command-category" id="cat-brightness">
+    <div class="command-category-header" onclick="toggleCommandCategory('cat-brightness')"><span class="command-category-icon">&#9728;</span><span class="command-category-name">Brightness / Output</span><span class="command-category-count">10</span><span class="command-category-chevron">&#9654;</span></div>
+    <div class="command-category-body">
+      <div class="command-item" onclick="toast('Global Brightness')"><div class="command-item-info"><div class="command-item-name">Global Brightness</div><div class="command-item-subtitle">0&ndash;255 (0&ndash;100%)</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Screen Brightness')"><div class="command-item-info"><div class="command-item-name">Screen Brightness</div><div class="command-item-subtitle">Per screen</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Blackout ON')"><div class="command-item-info"><div class="command-item-name">Blackout ON</div><div class="command-item-subtitle">All outputs to black</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Blackout OFF')"><div class="command-item-info"><div class="command-item-name">Blackout OFF</div><div class="command-item-subtitle">Restore normal output</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Freeze ON')"><div class="command-item-info"><div class="command-item-name">Freeze ON</div><div class="command-item-subtitle">Hold current frame</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Freeze OFF')"><div class="command-item-info"><div class="command-item-name">Freeze OFF</div><div class="command-item-subtitle">Resume live video</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Normal Display')"><div class="command-item-info"><div class="command-item-name">Normal Display</div><div class="command-item-subtitle">Clear blackout / freeze</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Test Pattern')"><div class="command-item-info"><div class="command-item-name">Test Pattern</div><div class="command-item-subtitle">Mode 0&ndash;12</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Port Mapping ON')"><div class="command-item-info"><div class="command-item-name">Port Mapping ON</div><div class="command-item-subtitle">Show tile addresses on wall</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('HDR Mode')"><div class="command-item-info"><div class="command-item-name">HDR Mode</div><div class="command-item-subtitle">ON / OFF</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#9655;</span></div>
+    </div>
+  </div>
+
+  <div class="command-category" id="cat-color">
+    <div class="command-category-header" onclick="toggleCommandCategory('cat-color')"><span class="command-category-icon">&#127752;</span><span class="command-category-name">Color / Calibration</span><span class="command-category-count">17</span><span class="command-category-chevron">&#9654;</span></div>
+    <div class="command-category-body">
+      <div class="command-item" onclick="toast('Calibration ON')"><div class="command-item-info"><div class="command-item-name">Calibration ON</div><div class="command-item-subtitle">Enable hardware cal coefficients</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Calibration OFF')"><div class="command-item-info"><div class="command-item-name">Calibration OFF</div><div class="command-item-subtitle">Bypass cal &mdash; raw output</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Cal Mode')"><div class="command-item-info"><div class="command-item-name">Cal Mode</div><div class="command-item-subtitle">Brightness only / Brightness + Color</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Color Temperature')"><div class="command-item-info"><div class="command-item-name">Color Temperature</div><div class="command-item-subtitle">3200 / 5600 / 6500 / 9300K</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('R Gain')"><div class="command-item-info"><div class="command-item-name">R Gain</div><div class="command-item-subtitle">0&ndash;1023</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('G Gain')"><div class="command-item-info"><div class="command-item-name">G Gain</div><div class="command-item-subtitle">0&ndash;1023</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('B Gain')"><div class="command-item-info"><div class="command-item-name">B Gain</div><div class="command-item-subtitle">0&ndash;1023</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Gamma')"><div class="command-item-info"><div class="command-item-name">Gamma</div><div class="command-item-subtitle">1.0&ndash;3.0</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Gamma Table')"><div class="command-item-info"><div class="command-item-name">Gamma Table</div><div class="command-item-subtitle">Standard / Custom</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Color Space')"><div class="command-item-info"><div class="command-item-name">Color Space</div><div class="command-item-subtitle">BT.709 / BT.2020 / DCI-P3 / Native</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Color Gamut Mapping')"><div class="command-item-info"><div class="command-item-name">Color Gamut Mapping</div><div class="command-item-subtitle">ON / OFF</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Bit Depth')"><div class="command-item-info"><div class="command-item-name">Bit Depth</div><div class="command-item-subtitle">8 / 10 / 12 bit</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Dithering')"><div class="command-item-info"><div class="command-item-name">Dithering</div><div class="command-item-subtitle">ON / OFF</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Low Gray Compensation')"><div class="command-item-info"><div class="command-item-name">Low Gray Compensation</div><div class="command-item-subtitle">Enhance dark area detail</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Uniformity Correction')"><div class="command-item-info"><div class="command-item-name">Uniformity Correction</div><div class="command-item-subtitle">ON / OFF</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Thermal Compensation')"><div class="command-item-info"><div class="command-item-name">Thermal Compensation</div><div class="command-item-subtitle">Auto color adjust for temp</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('3D LUT')"><div class="command-item-info"><div class="command-item-name">3D LUT</div><div class="command-item-subtitle">ON / OFF</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#9655;</span></div>
+    </div>
+  </div>
+
+  <div class="command-category" id="cat-input">
+    <div class="command-category-header" onclick="toggleCommandCategory('cat-input')"><span class="command-category-icon">&#8680;</span><span class="command-category-name">Input / Source</span><span class="command-category-count">6</span><span class="command-category-chevron">&#9654;</span></div>
+    <div class="command-category-body">
+      <div class="command-item" onclick="toast('Input Source')"><div class="command-item-info"><div class="command-item-name">Input Source</div><div class="command-item-subtitle">HDMI1/2, DP1/2, DVI, SDI</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Input Signal Status')"><div class="command-item-info"><div class="command-item-name">Input Signal Status</div><div class="command-item-subtitle">Read resolution + signal present</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#8635;</span></div>
+      <div class="command-item" onclick="navTo('edid')"><div class="command-item-info"><div class="command-item-name">EDID Set</div><div class="command-item-subtitle">Custom resolution + frame rate</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#8250;</span></div>
+      <div class="command-item" onclick="toast('EDID Reset')"><div class="command-item-info"><div class="command-item-name">EDID Reset</div><div class="command-item-subtitle">Restore default EDID</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Audio Source')"><div class="command-item-info"><div class="command-item-name">Audio Source</div><div class="command-item-subtitle">HDMI / AES / Analog</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('HDCP')"><div class="command-item-info"><div class="command-item-name">HDCP</div><div class="command-item-subtitle">ON / OFF</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#9655;</span></div>
+    </div>
+  </div>
+
+  <div class="command-category" id="cat-scaling">
+    <div class="command-category-header" onclick="toggleCommandCategory('cat-scaling')"><span class="command-category-icon">&#8645;</span><span class="command-category-name">Scaling / Presets</span><span class="command-category-count">7</span><span class="command-category-chevron">&#9654;</span></div>
+    <div class="command-category-body">
+      <div class="command-item" onclick="toast('Scaling Mode')"><div class="command-item-info"><div class="command-item-name">Scaling Mode</div><div class="command-item-subtitle">Fill / Fit / 1:1 / Custom</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Capture Region')"><div class="command-item-info"><div class="command-item-name">Capture Region</div><div class="command-item-subtitle">x, y, width, height</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Output Offset')"><div class="command-item-info"><div class="command-item-name">Output Offset</div><div class="command-item-subtitle">x, y position</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Save Preset')"><div class="command-item-info"><div class="command-item-name">Save Preset</div><div class="command-item-subtitle">Slots P1&ndash;P8</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Load Preset')"><div class="command-item-info"><div class="command-item-name">Load Preset</div><div class="command-item-subtitle">Slots P1&ndash;P8</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Rename Preset')"><div class="command-item-info"><div class="command-item-name">Rename Preset</div><div class="command-item-subtitle">Set slot name</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Screen Config Save/Load')"><div class="command-item-info"><div class="command-item-name">Screen Config Save/Load</div><div class="command-item-subtitle">Full screen configuration</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#9655;</span></div>
+    </div>
+  </div>
+
+  <div class="command-category" id="cat-rcfg">
+    <div class="command-category-header" onclick="toggleCommandCategory('cat-rcfg')"><span class="command-category-icon">&#8862;</span><span class="command-category-name">RCFG</span><span class="command-category-count">5</span><span class="command-category-chevron">&#9654;</span></div>
+    <div class="command-category-body">
+      <div class="command-item" onclick="toast('Reading config from tile...')"><div class="command-item-info"><div class="command-item-name">Read Config from Tile</div><div class="command-item-subtitle">Binary blob from RX card flash</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#8635;</span></div>
+      <div class="command-item" onclick="toast('Writing config to tiles...')"><div class="command-item-info"><div class="command-item-name">Write Config to Tile(s)</div><div class="command-item-subtitle">Single / port / all</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Saving to flash...')"><div class="command-item-info"><div class="command-item-name">Save Config to Flash</div><div class="command-item-subtitle">Persist to non-volatile memory</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Auditing tile configs...')"><div class="command-item-info"><div class="command-item-name">Config Audit</div><div class="command-item-subtitle">Hash check all tiles</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Factory reset tile')"><div class="command-item-info"><div class="command-item-name">Factory Reset Tile</div><div class="command-item-subtitle">&#9888; Destructive &mdash; requires confirm</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon destructive">&#9655;</span></div>
+    </div>
+  </div>
+
+  <div class="command-category" id="cat-monitoring">
+    <div class="command-category-header" onclick="toggleCommandCategory('cat-monitoring')"><span class="command-category-icon">&#128200;</span><span class="command-category-name">Monitoring</span><span class="command-category-count">15</span><span class="command-category-chevron">&#9654;</span></div>
+    <div class="command-category-body">
+      <div class="command-item" onclick="toast('Temp: 42&deg;C')"><div class="command-item-info"><div class="command-item-name">Read Temperature</div><div class="command-item-subtitle">Per-card &deg;C</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#8635;</span></div>
+      <div class="command-item" onclick="toast('Voltage: 5.02V')"><div class="command-item-info"><div class="command-item-name">Read Voltage</div><div class="command-item-subtitle">Per-card mV</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#8635;</span></div>
+      <div class="command-item" onclick="toast('Current: 1.2A')"><div class="command-item-info"><div class="command-item-name">Read Current</div><div class="command-item-subtitle">Per-card mA</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#8635;</span></div>
+      <div class="command-item" onclick="toast('Power: 6.0W')"><div class="command-item-info"><div class="command-item-name">Read Power</div><div class="command-item-subtitle">Per-card mW</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#8635;</span></div>
+      <div class="command-item" onclick="toast('MCU FW: v3.8.1')"><div class="command-item-info"><div class="command-item-name">MCU Firmware Version</div><div class="command-item-subtitle">RX card MCU</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#8635;</span></div>
+      <div class="command-item" onclick="toast('FPGA FW: V2.1.0_STD')"><div class="command-item-info"><div class="command-item-name">FPGA Firmware Version</div><div class="command-item-subtitle">RX card FPGA</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#8635;</span></div>
+      <div class="command-item" onclick="toast('Model: MRV300')"><div class="command-item-info"><div class="command-item-name">Read Tile Model</div><div class="command-item-subtitle">RX card model string</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#8635;</span></div>
+      <div class="command-item" onclick="toast('Serial: SN20240413-042')"><div class="command-item-info"><div class="command-item-name">Read Serial Number</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#8635;</span></div>
+      <div class="command-item" onclick="toast('Running: 1,284 hours')"><div class="command-item-info"><div class="command-item-name">Running Hours</div><div class="command-item-subtitle">Total power-on time</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#8635;</span></div>
+      <div class="command-item" onclick="toast('Pixels: 36,864')"><div class="command-item-info"><div class="command-item-name">Pixel Count</div><div class="command-item-subtitle">Per receiving card</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#8635;</span></div>
+      <div class="command-item" onclick="toast('Proc temp: 51&deg;C')"><div class="command-item-info"><div class="command-item-name">Processor Temperature</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#8635;</span></div>
+      <div class="command-item" onclick="toast('Fan: 2400 RPM')"><div class="command-item-info"><div class="command-item-name">Fan Speed</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#8635;</span></div>
+      <div class="command-item" onclick="toast('Input: 1920x1080@60')"><div class="command-item-info"><div class="command-item-name">Input Signal Format</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#8635;</span></div>
+      <div class="command-item" onclick="toast('Output: 60fps')"><div class="command-item-info"><div class="command-item-name">Output Frame Rate</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#8635;</span></div>
+      <div class="command-item" onclick="toast('Port 1: 1G link, 0 errors')"><div class="command-item-info"><div class="command-item-name">Ethernet Link Status</div><div class="command-item-subtitle">Per port link quality + errors</div></div><span class="badge badge-both">BOTH</span><span class="command-execute-icon">&#8635;</span></div>
+    </div>
+  </div>
+
+  <div class="command-category" id="cat-device">
+    <div class="command-category-header" onclick="toggleCommandCategory('cat-device')"><span class="command-category-icon">&#9881;</span><span class="command-category-name">Device Management</span><span class="command-category-count">5</span><span class="command-category-chevron">&#9654;</span></div>
+    <div class="command-category-body">
+      <div class="command-item" onclick="toast('Set IP Address')"><div class="command-item-info"><div class="command-item-name">Set IP Address</div><div class="command-item-subtitle">192.168.0.10</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Set Subnet')"><div class="command-item-info"><div class="command-item-name">Set Subnet</div><div class="command-item-subtitle">255.255.255.0</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Set Device Name')"><div class="command-item-info"><div class="command-item-name">Set Device Name</div><div class="command-item-subtitle">Friendly name string</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Firmware update initiated...')"><div class="command-item-info"><div class="command-item-name">Firmware Update (OTA)</div><div class="command-item-subtitle">&#9888; Requires network connection</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon">&#9655;</span></div>
+      <div class="command-item" onclick="toast('Factory reset &mdash; double confirm required')"><div class="command-item-info"><div class="command-item-name">Factory Reset Processor</div><div class="command-item-subtitle">&#9888; Destructive &mdash; double confirm</div></div><span class="badge badge-proc">PROC</span><span class="command-execute-icon destructive">&#9655;</span></div>
+    </div>
+  </div>
+
+  </div>
+  <div class="page-bottom-spacer"></div>
+</div></div>
+
+<!-- ═══ PORT DETAIL (sub-page) ═══ -->
+<div class="page" id="page-port"><div class="page-content">
+  <div class="sub-page-header"><button class="back-button" data-back-to="overview">&#8592;</button><span class="sub-page-title">Port <span id="port-detail-num">1</span> &mdash; VX4S</span></div>
+  <div class="card">
+    <div class="card-header">Port Status</div>
+    <div class="data-row"><span class="row-label">Tiles</span><span class="row-value">24 connected</span></div>
+    <div class="data-row"><span class="row-label">Resolution</span><span class="row-value data" style="font-size:11px">192&times;192 &times;24</span></div>
+    <div class="data-row"><span class="row-label">RX Model</span><span class="row-value">MRV300</span></div>
+    <div class="data-row"><span class="row-label">RX Firmware</span><span class="row-value">v3.8.1</span></div>
+    <div class="data-row"><span class="row-label">Temp range</span><span class="row-value ok">38&ndash;44&deg;C</span></div>
+    <div class="data-row"><span class="row-label">RCFG</span><span class="row-value ok">All matching</span></div>
+    <div class="data-row"><span class="row-label">Link quality</span><span class="row-value ok">1G &middot; 0 errors</span></div>
+    <div class="data-row"><span class="row-label">Bad packets</span><span class="row-value" style="color:var(--color-text-dim)">Polling not active</span></div>
+  </div>
+  <button class="primary-action-button" onclick="toast('Test pattern on port 1...')">Test Pattern &mdash; Port 1</button>
+  <div class="page-bottom-spacer"></div>
+</div></div>
+
+<!-- ═══ WARNINGS (sub-page) ═══ -->
+<div class="page" id="page-warnings"><div class="page-content">
+  <div class="sub-page-header"><button class="back-button" data-back-to="config">&#8592;</button><span class="sub-page-title">Warning Thresholds</span></div>
+  <p style="font-size:13px;color:var(--color-text-sub);margin-bottom:12px">Adjust when the tool alerts you. All alerts show as banner bars and flag affected ports.</p>
+
+  <div class="section-label" style="margin-top:0">Temperature</div>
+  <div class="warning-item">
+    <div class="warning-item-header"><span class="warning-item-name">Tile Temperature</span><div class="toggle-switch on" id="warn-temp-toggle" onclick="toggleSwitch('warn-temp-toggle')"><div class="toggle-knob"></div></div></div>
+    <div class="warning-item-desc">Alert when any tile exceeds threshold. Red above critical.</div>
+    <div class="warning-threshold-row"><span class="warning-threshold-label">Amber</span><input class="warning-threshold-input" type="number" value="60" min="30" max="90"><span class="warning-threshold-unit">&deg;C</span></div>
+    <div class="warning-threshold-row"><span class="warning-threshold-label">Red</span><input class="warning-threshold-input" type="number" value="70" min="30" max="90"><span class="warning-threshold-unit">&deg;C</span></div>
+  </div>
+
+  <div class="section-label">Data Integrity</div>
+  <div class="warning-item">
+    <div class="warning-item-header"><span class="warning-item-name">Link Error Rate</span><div class="toggle-switch on" id="warn-errors-toggle" onclick="toggleSwitch('warn-errors-toggle')"><div class="toggle-knob"></div></div></div>
+    <div class="warning-item-desc">Flag ports where Ethernet error counters are increasing.</div>
+    <div class="warning-threshold-row"><span class="warning-threshold-label">Threshold</span><input class="warning-threshold-input" type="number" value="5" min="1" max="100"><span class="warning-threshold-unit">err/s</span></div>
+  </div>
+  <div class="warning-item">
+    <div class="warning-item-header"><span class="warning-item-name">Poll Interval</span><div class="toggle-switch on" id="warn-poll-toggle" onclick="toggleSwitch('warn-poll-toggle')"><div class="toggle-knob"></div></div></div>
+    <div class="warning-item-desc">How often to poll link status. Lower = faster detection, more traffic.</div>
+    <div class="warning-threshold-row"><span class="warning-threshold-label">Interval</span><input class="warning-threshold-input" type="number" value="5" min="1" max="60"><span class="warning-threshold-unit">sec</span></div>
+  </div>
+
+  <div class="section-label">Configuration</div>
+  <div class="warning-item">
+    <div class="warning-item-header"><span class="warning-item-name">RCFG Mismatch</span><div class="toggle-switch on" id="warn-rcfg-toggle" onclick="toggleSwitch('warn-rcfg-toggle')"><div class="toggle-knob"></div></div></div>
+    <div class="warning-item-desc">Alert when tiles on the same port have different configuration hashes.</div>
+  </div>
+  <div class="warning-item">
+    <div class="warning-item-header"><span class="warning-item-name">Firmware Version Mismatch</span><div class="toggle-switch" id="warn-fw-toggle" onclick="toggleSwitch('warn-fw-toggle')"><div class="toggle-knob"></div></div></div>
+    <div class="warning-item-desc">Alert when RX cards on a port have different firmware versions.</div>
+  </div>
+
+  <div class="section-label">Power</div>
+  <div class="warning-item">
+    <div class="warning-item-header"><span class="warning-item-name">Voltage Out of Range</span><div class="toggle-switch on" id="warn-volt-toggle" onclick="toggleSwitch('warn-volt-toggle')"><div class="toggle-knob"></div></div></div>
+    <div class="warning-item-desc">Alert when tile supply voltage deviates from nominal by more than threshold.</div>
+    <div class="warning-threshold-row"><span class="warning-threshold-label">Deviation</span><input class="warning-threshold-input" type="number" value="5" min="1" max="20"><span class="warning-threshold-unit">%</span></div>
+  </div>
+  <div class="page-bottom-spacer"></div>
+</div></div>
+
+</div><!-- /main-scroll -->
+
+<!-- ═══════════════════════════════════════════════════════════
+     TAB BAR (bottom only)
+     ═══════════════════════════════════════════════════════════ -->
+<div class="tab-bar">
+  <div class="tab-item" data-tab="home" onclick="navTo('home')"><span class="tab-item-icon">&#8962;</span>Home</div>
+  <div class="tab-item active" data-tab="overview" onclick="navTo('overview')"><span class="tab-item-icon">&#9735;</span>Overview</div>
+  <div class="tab-item" data-tab="control" onclick="navTo('control')"><span class="tab-item-icon">&#9675;</span>Control</div>
+  <div class="tab-item" data-tab="save" onclick="navTo('save')"><div class="tab-badge" id="save-badge">3</div><span class="tab-item-icon">&#8679;</span>Save</div>
+  <div class="tab-item" data-tab="config" onclick="navTo('config')"><span class="tab-item-icon">&#9881;</span>Config</div>
+</div>
+
+<!-- SAVE CONFIRM MODAL -->
+<div class="modal-overlay" id="save-modal" style="display:none">
+  <div class="modal-dialog">
+    <div class="modal-title">Save to Hardware?</div>
+    <div class="modal-subtitle">Writing to non-volatile flash:</div>
+    <div class="modal-change-item">Brightness &mdash; Screen 1<div class="modal-change-detail">100% &rarr; 85%</div></div>
+    <div class="modal-change-item">Gamma &mdash; Screen 1<div class="modal-change-detail">2.6 &rarr; 2.4</div></div>
+    <div class="modal-change-item">Calibration &mdash; Screen 2<div class="modal-change-detail">ON &rarr; OFF</div></div>
+    <div class="modal-warning">&#9888; Changes persist across power cycles.</div>
+    <div class="modal-button-row">
+      <button class="modal-cancel-button" onclick="hideSaveModal()">Cancel</button>
+      <button class="modal-confirm-button" onclick="confirmSave()">Yes, Save to Flash</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast-el"></div>
+
+<script>
+/* ==============================================================
+   CONSTANTS
+   Adding a new cal mode means editing CAL_MODES only.
+   ============================================================== */
+
+var CAL_MODES = [
+  { label: 'OFF',      buttonClass: '',            toggleOn: false, description: 'Calibration disabled',      badgeColor: 'var(--color-text-dim)' },
+  { label: 'ON',       buttonClass: 'active-blue', toggleOn: true,  description: 'Brightness + Color active', badgeColor: 'var(--color-blue)'     },
+  { label: 'Bri Only', buttonClass: 'active-blue', toggleOn: true,  description: 'Brightness only active',    badgeColor: 'var(--color-blue)'     }
+];
+
+var PATTERN_NAMES = {
+  off: 'Normal', white: 'White', black: 'Black', gray: 'Gray 50%',
+  red: 'Red', green: 'Green', blue: 'Blue', gradient: 'Gradient',
+  grid: 'Grid', hline: 'H-Line', vline: 'V-Line', moving: 'Moving'
+};
+
+var CT_MIN = 3200, CT_MAX = 9300;
+
+var MAIN_TABS = ['home', 'overview', 'control', 'save', 'config'];
+
+/* ==============================================================
+   STATE
+   All mutable values live here. DOM is always derived from state.
+   ============================================================== */
+
+var state = {
+  selectedProcessor: null,
+  blackout:          false,
+  freeze:            false,
+  portMapping:       false,
+  calMode:           1,
+  activePattern:     null,
+  brightness:        85,
+  gammaPercent:      65,
+  colorTempKelvin:   6500,
+  rgbManualOverride: false,
+  rgbGains:          { red: 100, green: 100, blue: 100 },
+  rgbBrightness:     { red: 100, green: 100, blue: 100 },
+  controlScreens:    [0, 1, 2, 3],
+  saveChecked:       [true, true, true],
+  isDark:            true
+};
+
+/* ==============================================================
+   DOM HELPERS
+   ============================================================== */
+
+function el(id) { return document.getElementById(id); }
+
+function activateOne(groupSelector, target) {
+  var nodes = document.querySelectorAll(groupSelector);
+  for (var i = 0; i < nodes.length; i++) nodes[i].classList.remove('active');
+  target.classList.add('active');
+}
+
+/* ==============================================================
+   NAVIGATION
+   ============================================================== */
+
+function navTo(pageId) {
+  var pages = document.querySelectorAll('.page');
+  for (var i = 0; i < pages.length; i++) pages[i].classList.remove('active');
+  var page = el('page-' + pageId);
+  if (page) page.classList.add('active');
+
+  if (MAIN_TABS.indexOf(pageId) !== -1) {
+    var tabs = document.querySelectorAll('.tab-item');
+    for (var j = 0; j < tabs.length; j++) tabs[j].classList.remove('active');
+    var tab = document.querySelector('.tab-item[data-tab="' + pageId + '"]');
+    if (tab) tab.classList.add('active');
+  }
+}
+
+// Navigate to Control tab and scroll to pattern section
+function goToPatterns() {
+  el('test-pattern-popup').classList.remove('visible');
+  navTo('control');
+}
+
+// Delegated back-button handler
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('.back-button');
+  if (btn) navTo(btn.getAttribute('data-back-to'));
+});
+
+/* ==============================================================
+   ALERT BARS
+   ============================================================== */
+
+function showAlert(type) { el('alert-' + type).classList.add('visible'); }
+function hideAlert(type) { el('alert-' + type).classList.remove('visible'); }
+
+function dismissAlert(type) {
+  hideAlert(type);
+  if (type === 'blackout') { state.blackout = false; syncQuickActionStates(); }
+  if (type === 'freeze')   { state.freeze   = false; syncQuickActionStates(); }
+  if (type === 'pattern')  { state.activePattern = null; syncPatternUI(); syncQuickActionStates(); }
+  syncDisplayMode();
+}
+
+/* ==============================================================
+   PROCESSOR CARDS & SELECTION
+   ============================================================== */
+
+function selectProcessor(id, event) {
+  var card = el(id);
+  // If clicking inside the body of an already-selected card, let the click through
+  if (card.classList.contains('selected') && event.target.closest('.processor-body')) return;
+
+  var cards = document.querySelectorAll('.processor-card');
+  for (var i = 0; i < cards.length; i++) cards[i].classList.remove('selected');
+
+  if (state.selectedProcessor === id) {
+    // Deselect
+    state.selectedProcessor = null;
+  } else {
+    card.classList.add('selected');
+    state.selectedProcessor = id;
+  }
+  syncQuickActionsEnabled();
+  syncQuickActionStates();
+}
+
+function togglePortList(listId, labelId, event) {
+  event.stopPropagation();
+  var list = el(listId);
+  var label = el(labelId);
+  var expanding = list.style.display === 'none';
+  list.style.display = expanding ? 'block' : 'none';
+  label.innerHTML = expanding
+    ? 'PORTS &#9660; <span style="font-size:10px;opacity:.6">TAP TO COLLAPSE</span>'
+    : 'PORTS &#9654; <span style="font-size:10px;opacity:.6">TAP TO EXPAND</span>';
+}
+
+function openPortDetail(portNum) {
+  el('port-detail-num').textContent = portNum;
+  navTo('port');
+}
+
+/* ==============================================================
+   SCREEN SELECTION (Control tab)
+   ============================================================== */
+
+function toggleScreenSelection(context, index) {
+  var selected = state.controlScreens;
+  var pos = selected.indexOf(index);
+  if (pos > -1) selected.splice(pos, 1); else selected.push(index);
+
+  var chip = document.querySelector('#control-screen-chips [data-index="' + index + '"]');
+  if (chip) chip.classList.toggle('unselected', selected.indexOf(index) === -1);
+
+  var total = document.querySelectorAll('#control-screen-chips .screen-chip').length;
+  el('control-screen-count').textContent = selected.length + '/' + total + ' screens';
+}
+
+/* ==============================================================
+   QUICK ACTIONS
+   ============================================================== */
+
+function syncQuickActionsEnabled() {
+  var container = el('quick-actions-container');
+  if (state.selectedProcessor) {
+    container.classList.remove('disabled');
+  } else {
+    container.classList.add('disabled');
+  }
+}
+
+function syncQuickActionStates() {
+  el('btn-blackout').className = 'action-button' + (state.blackout ? ' active-red' : '');
+  el('btn-freeze').className = 'action-button' + (state.freeze ? ' active-amber' : '');
+  el('btn-port-mapping').className = 'action-button' + (state.portMapping ? ' active-amber' : '');
+
+  var calMode = CAL_MODES[state.calMode];
+  el('btn-calibration').className = 'action-button ' + calMode.buttonClass;
+
+  var patternBtn = el('btn-test-pattern');
+  if (state.activePattern) {
+    patternBtn.className = 'action-button active-amber';
+    patternBtn.textContent = PATTERN_NAMES[state.activePattern] || 'Test';
+  } else {
+    patternBtn.className = 'action-button';
+    patternBtn.innerHTML = '&#8863; Test Pattern';
+  }
+}
+
+function toggleBlackout() {
+  state.blackout = !state.blackout;
+  if (state.blackout) { state.freeze = false; hideAlert('freeze'); }
+  state.blackout ? showAlert('blackout') : hideAlert('blackout');
+  syncQuickActionStates();
+  syncDisplayMode();
+}
+
+function toggleFreeze() {
+  state.freeze = !state.freeze;
+  if (state.freeze) { state.blackout = false; hideAlert('blackout'); }
+  state.freeze ? showAlert('freeze') : hideAlert('freeze');
+  syncQuickActionStates();
+  syncDisplayMode();
+}
+
+function togglePortMapping() {
+  state.portMapping = !state.portMapping;
+  syncQuickActionStates();
+  toast('Port Mapping: ' + (state.portMapping ? 'ON' : 'OFF'));
+}
+
+function toggleTestPatternPopup() {
+  el('test-pattern-popup').classList.toggle('visible');
+}
+
+function quickPattern(key) {
+  state.activePattern = state.activePattern === key ? null : key;
+  syncPatternUI();
+  syncQuickActionStates();
+  syncDisplayMode();
+  el('test-pattern-popup').classList.remove('visible');
+  if (state.activePattern) {
+    showAlert('pattern');
+    el('alert-pattern-label').innerHTML = '&#9679; ' + (PATTERN_NAMES[key] || 'TEST').toUpperCase() + ' ACTIVE';
+  } else {
+    hideAlert('pattern');
+  }
+}
+
+// Close popup when tapping outside
+document.addEventListener('click', function(event) {
+  if (!event.target.closest('.quick-actions') && !event.target.closest('.back-button')) {
+    var popup = el('test-pattern-popup');
+    if (popup) popup.classList.remove('visible');
+  }
+});
+
+function runDeepScan() {
+  toast('Deep scan started \u2014 RCFG + temp + firmware...');
+}
+
+/* ==============================================================
+   DISPLAY MODE
+   Updates processor status labels when blackout/freeze/pattern changes.
+   ============================================================== */
+
+function getDisplayModeText() {
+  if (state.blackout) return 'Blackout';
+  if (state.freeze) return 'Freeze';
+  if (state.activePattern) return PATTERN_NAMES[state.activePattern] || 'Test';
+  return 'Normal';
+}
+
+function getDisplayModeColor() {
+  if (state.blackout) return 'var(--color-red)';
+  if (state.freeze) return 'var(--color-amber)';
+  if (state.activePattern) return 'var(--color-amber)';
+  return 'inherit';
+}
+
+function syncDisplayMode() {
+  var text = getDisplayModeText();
+  var color = getDisplayModeColor();
+  var labels = document.querySelectorAll('.display-mode-label');
+  for (var i = 0; i < labels.length; i++) {
+    labels[i].textContent = text;
+    labels[i].style.color = color;
+  }
+}
+
+/* ==============================================================
+   CALIBRATION CYCLE
+   Driven entirely by CAL_MODES array.
+   ============================================================== */
+
+function cycleCalibration() {
+  state.calMode = (state.calMode + 1) % CAL_MODES.length;
+  syncCalUI();
+}
+
+function syncCalUI() {
+  var mode = CAL_MODES[state.calMode];
+  el('btn-calibration').className = 'action-button ' + mode.buttonClass;
+  el('cal-button-label').textContent = mode.label;
+  var toggle = el('cal-toggle');
+  toggle.classList.toggle('on', mode.toggleOn);
+  el('cal-toggle-subtitle').textContent = mode.description;
+  var badges = document.querySelectorAll('.cal-status-badge');
+  for (var i = 0; i < badges.length; i++) {
+    badges[i].textContent = mode.label;
+    badges[i].style.color = mode.badgeColor;
+  }
+  toast('Cal: ' + mode.description);
+}
+
+function toggleSwitch(toggleId) {
+  el(toggleId).classList.toggle('on');
+}
+
+/* ==============================================================
+   TEST PATTERNS (Control page)
+   ============================================================== */
+
+function selectPattern(key) {
+  state.activePattern = (state.activePattern === key || key === 'off') ? null : key;
+  syncPatternUI();
+  syncQuickActionStates();
+  syncDisplayMode();
+  if (state.activePattern) {
+    showAlert('pattern');
+    el('alert-pattern-label').innerHTML = '&#9679; ' + (PATTERN_NAMES[state.activePattern] || 'TEST').toUpperCase() + ' ACTIVE';
+  } else {
+    hideAlert('pattern');
+  }
+}
+
+function syncPatternUI() {
+  var buttons = document.querySelectorAll('.pattern-button[data-pattern]');
+  for (var i = 0; i < buttons.length; i++) {
+    var pat = buttons[i].getAttribute('data-pattern');
+    buttons[i].classList.toggle('active', pat === state.activePattern);
+  }
+}
+
+/* ==============================================================
+   SLIDERS
+   Generic drag system — each slider registers a handler function.
+   ============================================================== */
+
+var activeDrag = null;
+
+function pctFromEvent(event, trackEl) {
+  var rect = trackEl.getBoundingClientRect();
+  var clientX;
+  if (event.touches && event.touches.length > 0) {
+    clientX = event.touches[0].clientX;
+  } else if (event.changedTouches && event.changedTouches.length > 0) {
+    clientX = event.changedTouches[0].clientX;
+  } else {
+    clientX = event.clientX;
+  }
+  return Math.round(Math.max(0, Math.min(100, (clientX - rect.left) / rect.width * 100)));
+}
+
+function handleBrightnessInput(pct) {
+  state.brightness = pct;
+  el('brightness-fill').style.width = pct + '%';
+  el('brightness-thumb').style.left = pct + '%';
+  el('brightness-display').textContent = pct + '%';
+}
+
+function handleGammaInput(pct) {
+  state.gammaPercent = pct;
+  var gamma = (1.0 + (pct / 100) * 2.0).toFixed(1);
+  el('gamma-fill').style.width = pct + '%';
+  el('gamma-thumb').style.left = pct + '%';
+  el('gamma-display').textContent = gamma;
+}
+
+function handleColorTempInput(pct) {
+  var kelvin = CT_MIN + (pct / 100) * (CT_MAX - CT_MIN);
+  kelvin = Math.round(kelvin / 100) * 100;
+  state.colorTempKelvin = kelvin;
+  state.rgbManualOverride = false;
+  syncColorTempUI();
+}
+
+var SLIDER_HANDLERS = {
+  'brightness':     handleBrightnessInput,
+  'gamma':          handleGammaInput,
+  'color-temp':     handleColorTempInput,
+  'rgb-gain-red':   function(p) { setRGBGain('red', p); },
+  'rgb-gain-green': function(p) { setRGBGain('green', p); },
+  'rgb-gain-blue':  function(p) { setRGBGain('blue', p); },
+  'rgb-bri-red':    function(p) { setRGBBrightness('red', p); },
+  'rgb-bri-green':  function(p) { setRGBBrightness('green', p); },
+  'rgb-bri-blue':   function(p) { setRGBBrightness('blue', p); }
+};
+
+function startSliderDrag(sliderId, event) {
+  event.preventDefault();
+  var trackEl = event.currentTarget;
+  var handler = SLIDER_HANDLERS[sliderId];
+  if (!handler) return;
+  handler(pctFromEvent(event, trackEl));
+  activeDrag = { handler: handler, track: trackEl };
+  document.addEventListener('mousemove', handleDragMove, false);
+  document.addEventListener('mouseup', handleDragEnd, false);
+  document.addEventListener('touchmove', handleDragMove, false);
+  document.addEventListener('touchend', handleDragEnd, false);
+}
+
+function handleDragMove(event) {
+  if (!activeDrag) return;
+  event.preventDefault();
+  activeDrag.handler(pctFromEvent(event, activeDrag.track));
+}
+
+function handleDragEnd() {
+  activeDrag = null;
+  document.removeEventListener('mousemove', handleDragMove, false);
+  document.removeEventListener('mouseup', handleDragEnd, false);
+  document.removeEventListener('touchmove', handleDragMove, false);
+  document.removeEventListener('touchend', handleDragEnd, false);
+}
+
+/* ==============================================================
+   COLOR TEMPERATURE
+   100K increments, step buttons, RGB interaction.
+   ============================================================== */
+
+function syncColorTempUI() {
+  if (state.rgbManualOverride) {
+    el('color-temp-normal').style.display = 'none';
+    el('color-temp-override').style.display = 'block';
+    el('color-temp-display').textContent = 'N/A';
+    return;
+  }
+  el('color-temp-normal').style.display = 'block';
+  el('color-temp-override').style.display = 'none';
+  var pct = (state.colorTempKelvin - CT_MIN) / (CT_MAX - CT_MIN) * 100;
+  el('color-temp-fill').style.width = pct + '%';
+  el('color-temp-thumb').style.left = pct + '%';
+  el('color-temp-display').textContent = state.colorTempKelvin + 'K';
+  highlightColorTempPreset(state.colorTempKelvin);
+}
+
+function highlightColorTempPreset(kelvin) {
+  var buttons = document.querySelectorAll('.color-temp-preset');
+  for (var i = 0; i < buttons.length; i++) {
+    var presetK = parseInt(buttons[i].getAttribute('data-kelvin'), 10);
+    buttons[i].classList.toggle('active', presetK === kelvin);
+  }
+}
+
+function setColorTempPreset(kelvin, btn) {
+  state.colorTempKelvin = kelvin;
+  state.rgbManualOverride = false;
+  syncColorTempUI();
+}
+
+function stepColorTemp(delta) {
+  state.colorTempKelvin = Math.max(CT_MIN, Math.min(CT_MAX, state.colorTempKelvin + delta));
+  state.rgbManualOverride = false;
+  syncColorTempUI();
+}
+
+function resetColorTemp() {
+  state.rgbGains = { red: 100, green: 100, blue: 100 };
+  updateRGBGainDOM('red', 100);
+  updateRGBGainDOM('green', 100);
+  updateRGBGainDOM('blue', 100);
+  state.rgbManualOverride = false;
+  syncColorTempUI();
+}
+
+/* ==============================================================
+   RGB GAINS
+   Manual gain adjustment invalidates color temp.
+   ============================================================== */
+
+function updateRGBGainDOM(channel, pct) {
+  el('rgb-gain-' + channel + '-fill').style.width = pct + '%';
+  el('rgb-gain-' + channel + '-thumb').style.left = pct + '%';
+  el('rgb-gain-' + channel + '-display').textContent = pct + '%';
+}
+
+function setRGBGain(channel, pct) {
+  pct = Math.max(0, Math.min(100, pct));
+  state.rgbGains[channel] = pct;
+  updateRGBGainDOM(channel, pct);
+  state.rgbManualOverride = true;
+  syncColorTempUI();
+}
+
+function adjustRGBGain(channel, delta) {
+  setRGBGain(channel, state.rgbGains[channel] + delta);
+}
+
+/* ==============================================================
+   RGB BRIGHTNESS
+   Does not affect color temp.
+   ============================================================== */
+
+function setRGBBrightness(channel, pct) {
+  pct = Math.max(0, Math.min(100, pct));
+  state.rgbBrightness[channel] = pct;
+  el('rgb-bri-' + channel + '-fill').style.width = pct + '%';
+  el('rgb-bri-' + channel + '-thumb').style.left = pct + '%';
+  el('rgb-bri-' + channel + '-display').textContent = pct + '%';
+}
+
+function adjustRGBBrightness(channel, delta) {
+  setRGBBrightness(channel, state.rgbBrightness[channel] + delta);
+}
+
+/* ==============================================================
+   SAVE TAB
+   ============================================================== */
+
+function toggleSaveCheckbox(index) {
+  state.saveChecked[index] = !state.saveChecked[index];
+  var checkbox = document.querySelector('[data-change-index="' + index + '"]');
+  if (checkbox) {
+    checkbox.innerHTML = state.saveChecked[index] ? '&#10003;' : '';
+    checkbox.classList.toggle('checked', state.saveChecked[index]);
+  }
+  syncSaveUI();
+}
+
+function syncSaveUI() {
+  var count = 0;
+  for (var i = 0; i < state.saveChecked.length; i++) { if (state.saveChecked[i]) count++; }
+  el('save-change-count').textContent = count + ' CHANGE' + (count !== 1 ? 'S' : '');
+  el('save-to-flash-btn').disabled = count === 0;
+  var badge = el('save-badge');
+  badge.textContent = count > 0 ? count : '';
+  badge.style.display = count > 0 ? 'flex' : 'none';
+}
+
+function showSaveModal() {
+  var hasChecked = false;
+  for (var i = 0; i < state.saveChecked.length; i++) { if (state.saveChecked[i]) { hasChecked = true; break; } }
+  if (hasChecked) el('save-modal').style.display = 'flex';
+}
+
+function hideSaveModal() { el('save-modal').style.display = 'none'; }
+
+function confirmSave() {
+  hideSaveModal();
+  for (var i = 0; i < state.saveChecked.length; i++) state.saveChecked[i] = false;
+  var checkboxes = document.querySelectorAll('[data-change-index]');
+  for (var j = 0; j < checkboxes.length; j++) {
+    checkboxes[j].innerHTML = '';
+    checkboxes[j].classList.remove('checked');
+  }
+  syncSaveUI();
+  toast('Saved to hardware flash');
+}
+
+/* ==============================================================
+   COMMANDS PAGE
+   ============================================================== */
+
+function toggleCommandCategory(id) { el(id).classList.toggle('open'); }
+
+function filterCommands(query) {
+  var q = query.toLowerCase();
+  var items = document.querySelectorAll('.command-item');
+  for (var i = 0; i < items.length; i++) {
+    var name = items[i].querySelector('.command-item-name').textContent.toLowerCase();
+    var sub = items[i].querySelector('.command-item-subtitle');
+    var matches = !q || name.indexOf(q) !== -1 || (sub && sub.textContent.toLowerCase().indexOf(q) !== -1);
+    items[i].style.display = matches ? 'flex' : 'none';
+  }
+  if (q) {
+    var cats = document.querySelectorAll('.command-category');
+    for (var j = 0; j < cats.length; j++) {
+      var catItems = cats[j].querySelectorAll('.command-item');
+      var hasMatch = false;
+      for (var k = 0; k < catItems.length; k++) {
+        if (catItems[k].style.display !== 'none') { hasMatch = true; break; }
+      }
+      cats[j].classList.toggle('open', hasMatch);
+    }
+  }
+}
+
+/* ==============================================================
+   EDID PAGE
+   ============================================================== */
+
+function selectEdidInput(btn)                    { activateOne('.edid-input-button', btn); }
+function selectEdidPreset(btn, width, height) {
+  activateOne('.edid-resolution-preset', btn);
+  el('edid-width').value  = width;
+  el('edid-height').value = height;
+}
+function selectFPS(btn) { activateOne('.fps-button', btn); }
+
+function matchToWall(w, h) {
+  el('edid-width').value  = w;
+  el('edid-height').value = h;
+  toast('Set to ' + w + ' x ' + h);
+}
+
+function applyEdid() {
+  var w   = el('edid-width').value;
+  var h   = el('edid-height').value;
+  var fps = document.querySelector('.fps-button.active');
+  toast('EDID applied: ' + w + 'x' + h + '@' + (fps ? fps.textContent : '60'));
+}
+
+/* ==============================================================
+   THEME
+   ============================================================== */
+
+function toggleTheme() {
+  state.isDark = !state.isDark;
+  document.body.classList.toggle('theme-light', !state.isDark);
+  el('theme-toggle-btn').innerHTML = state.isDark ? '&#9789; Dark' : '&#9788; Light';
+}
+
+/* ==============================================================
+   TOAST
+   ============================================================== */
+
+var toastTimer = null;
+
+function toast(msg) {
+  var t = el('toast-el');
+  t.textContent = msg;
+  t.classList.add('visible');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function() { t.classList.remove('visible'); }, 2200);
+}
+
+/* ==============================================================
+   API INTEGRATION
+   Fetches live data from /api/processors when served by the
+   Express server. Falls back gracefully when opened standalone
+   (file:// or static server without API).
+   ============================================================== */
+
+function fetchProcessors() {
+  fetch('/api/processors')
+    .then(function(res) { return res.json(); })
+    .then(function(processors) {
+      console.log('[API] Loaded ' + processors.length + ' processors from server');
+      // Update status bar with live counts
+      var totalTiles = 0;
+      for (var i = 0; i < processors.length; i++) totalTiles += processors[i].tileCount;
+      el('status-text').textContent = processors.length + ' processors \u00b7 ' + totalTiles + ' tiles';
+    })
+    .catch(function() {
+      // No API available — running standalone with demo data. That's fine.
+      console.log('[API] No server detected, using demo data');
+    });
+}
+
+function fetchSiteConfig() {
+  fetch('/api/site-config')
+    .then(function(res) { return res.json(); })
+    .then(function(config) {
+      console.log('[API] Loaded site config:', config.device && config.device.name);
+    })
+    .catch(function() {
+      // No config endpoint — standalone mode
+    });
+}
+
+// Bootstrap: try to load live data on startup
+fetchProcessors();
+fetchSiteConfig();
+</script>
+</body>
+</html>

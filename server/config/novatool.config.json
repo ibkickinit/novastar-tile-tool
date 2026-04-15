@@ -1,0 +1,47 @@
+{
+  "device": {
+    "name": "NovaTool",
+    "version": "11.0.0"
+  },
+  "network": {
+    "sending_card_ip": "192.168.0.10",
+    "protocol": "TCP",
+    "tcp_port": 5200,
+    "udp_port": 5201,
+    "web_port": 8080,
+    "connect_timeout_ms": 3000,
+    "response_timeout_ms": 2000
+  },
+  "wifi_ap": {
+    "ssid": "NovaTool",
+    "password": "",
+    "channel": 6
+  },
+  "defaults": {
+    "brightness": 100,
+    "gamma": 2.6,
+    "color_temp": 6500,
+    "calibration": "on",
+    "theme": "dark"
+  },
+  "edid_presets": [
+    { "width": 1920, "height": 1080, "label": "1080p" },
+    { "width": 3840, "height": 2160, "label": "4K UHD" },
+    { "width": 2048, "height": 1080, "label": "DCI 2K" },
+    { "width": 4096, "height": 2160, "label": "DCI 4K" },
+    { "width": 2304, "height": 1152, "label": "LED native" },
+    { "width": 1280, "height":  720, "label": "720p" }
+  ],
+  "color_temp_presets": [3200, 5600, 6500, 9300],
+  "fps_presets": [23.976, 24, 25, 29.97, 30, 50, 59.94, 60],
+  "warnings": {
+    "temp_amber_c": 60,
+    "temp_red_c": 70,
+    "link_error_threshold": 5,
+    "poll_interval_sec": 5,
+    "voltage_deviation_pct": 5,
+    "rcfg_mismatch": true,
+    "firmware_mismatch": false
+  },
+  "profiles_db_url": null
+}
