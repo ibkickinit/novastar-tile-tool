@@ -76,10 +76,11 @@ def iter_pcapng(path):
                     res = iface_ts_resolutions[iface_id] if iface_id < len(iface_ts_resolutions) else 1_000_000
                     ts_us = ((ts_hi << 32) | ts_lo) * 1_000_000 // res
                 else:  # SPB
+                    iface_id = 0
                     cap_len = struct.unpack_from('<I', body, 0)[0]
                     frame = body[4:4 + cap_len]
                     ts_us = 0
-                yield ts_us, frame
+                yield ts_us, iface_id, frame
 
 # ── main ───────────────────────────────────────────────────────────────────────
 
@@ -106,6 +107,9 @@ def main():
                         help='Bytes of payload to print (default: 64)')
     parser.add_argument('--out', default=None,
                         help='Write output to this file in addition to stdout')
+    parser.add_argument('--iface', type=int, default=None, metavar='IDX',
+                        help='Filter by interface index (0=en11/VX1000 side, 1=en9/tile side). '
+                             'Omit to show all interfaces.')
     args = parser.parse_args()
 
     prefix = bytes.fromhex(args.prefix)
@@ -120,6 +124,8 @@ def main():
 
     emit(f'Reading {args.pcapng}')
     emit(f'Filtering: dst MAC prefix = {args.prefix}')
+    if args.iface is not None:
+        emit(f'Interface filter: iface_id={args.iface}')
     emit(f'Bucket size: {args.bucket}s | Unique-only: {args.unique}')
     emit()
 
@@ -129,7 +135,9 @@ def main():
     buckets = collections.defaultdict(list)
     total = 0
 
-    for ts_us, frame in iter_pcapng(args.pcapng):
+    for ts_us, iface_id, frame in iter_pcapng(args.pcapng):
+        if args.iface is not None and iface_id != args.iface:
+            continue
         if len(frame) < 14:
             continue
         dst = frame[0:6]

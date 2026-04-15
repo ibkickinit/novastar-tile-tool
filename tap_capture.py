@@ -55,6 +55,7 @@ TEST_MODE_NAMES = {0: 'Off', 2: 'Red', 3: 'Green', 4: 'Blue', 5: 'White', 6: 'Gr
 BIOCSETIF     = 0x8020426c
 BIOCIMMEDIATE = 0x80044270
 BIOCGBLEN     = 0x40044266
+BIOCSBLEN     = 0xC0044266
 BIOCSHDRCMPLT = 0x80044275
 BIOCPROMISC   = 0x20004269
 
@@ -63,6 +64,7 @@ def open_bpf(iface: str) -> Tuple[int, int]:
         try:
             fd = os.open(f'/dev/bpf{i}', os.O_RDWR)
             fcntl.ioctl(fd, BIOCSETIF, struct.pack('16s', iface.encode()))
+            fcntl.ioctl(fd, BIOCSBLEN, struct.pack('I', 1048576))  # 1MB buffer
             fcntl.ioctl(fd, BIOCIMMEDIATE, struct.pack('I', 1))
             fcntl.ioctl(fd, BIOCSHDRCMPLT, struct.pack('I', 1))
             fcntl.ioctl(fd, BIOCPROMISC, struct.pack('I', 1))

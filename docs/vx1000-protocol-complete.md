@@ -96,8 +96,9 @@ A second frame type also appears: `09:1e:00:00:00:00` with ethertype `0x0000`, s
 ### Frame statistics (confirmed)
 
 - ~1,700 frames/sec total through bridge
-- Frame size: 959 bytes (14-byte header + 945-byte payload)
-- 945 payload bytes = 315 RGB pixels per frame
+- Frame size: 959 bytes (14-byte header + 945-byte payload) — original tile at default scan config
+- 192×192 tile (1×1 config, Novastar A8): 575 bytes per frame
+  - After failed Quick Config, VX1000 enters reduced scan mode: 383-byte frames. Fix: remove bridge0, run Quick Config successfully, restore bridge0.
 - ~90% pixel frames (`09:1e` with non-zero bytes 2+)
 - ~8–10% sync/blank frames (`09:1e:00:00:00:00`)
 
@@ -368,6 +369,17 @@ Payload:   structured, 5 unique patterns observed, NOT correlated with brightnes
 
 Required for tile to display anything. Dropping 09:2d frames causes the tile to go completely dark within milliseconds. Exact role not yet decoded. Likely carries display configuration, sync negotiation, or a keepalive protocol.
 
+**Complementary byte pair encoding (discovered 2026-04-15):**
+All fields in 09:2d frames (dst MAC bytes 2–5, ethertype, payload bytes) use XX:~XX pairs where each byte pair sums to 0xFF. Example: dst MAC byte 2 = 0x3c → byte 3 = 0xc3 (3c + c3 = ff). This is consistent throughout — ethertype and payload follow the same rule.
+
+**Quick Config protocol (discovered 2026-04-15):**
+Quick Config is a bidirectional calibration sequence initiated from the VX1000 front panel. It is NOT a one-way broadcast. The tile must respond to each step. Sequence observed:
+1. VX1000 sends black frame (all 00)
+2. VX1000 sends alternating 00/ff calibration pattern
+3. VX1000 sends black frame again
+
+The tile is expected to ACK each phase. This is why Quick Config FAILS when bridge0 is in the path — Mac USB NIC latency causes the tile response to arrive too late, resulting in "Sync Failed" on the VX1000 display. Fix: destroy bridge0 before running Quick Config, restore afterward. Capture: ~/Desktop/quickconfig_attempt.pcapng (16MB, two attempts).
+
 ---
 
 ### 09:3c — Brightness command
@@ -400,7 +412,7 @@ Payload:   [0]  brightness (0x00–0xFF)
 | 75% | `0xbf` | `0xc2` | `0x03` |
 | 100% | `0xff` | `0x02` | `0x04` |
 
-Note: 25/50/75% values calculated as `round(pct * 255 / 100)`. Exact VX1000 dial mapping not verified for mid-range steps — confirm with targeted static captures if needed.
+Verified: 25=0x3f 50=0x7f 75=0xbf. Floor division confirmed.
 
 ---
 
@@ -417,7 +429,7 @@ def make_093c_brightness(level_pct: float) -> bytes:
     level_pct: 0.0–100.0  (0% = off, 100% = full brightness)
     Returns: complete Ethernet frame bytes, ready to write to BPF fd.
     """
-    b     = max(0, min(255, round(level_pct * 255 / 100)))
+    b     = max(0, min(255, int(level_pct * 255 / 100)))
     chk   = (b + 3) & 0xFF
     carry = 0x04 if b >= 0xFD else 0x03
     payload = bytes([b, chk, carry, 0x67, 0x04]) + b'\x00' * 1003
@@ -485,6 +497,18 @@ bridge0 has a default BPF buffer of 4,096 bytes. At 1,700+ fps with 959-byte fra
 
 Static captures will never contain 09:3c frames. If you are debugging and see no 09:3c frames, that is expected unless you changed brightness during the capture.
 
+### tap_capture.py not suitable for brightness (09:3c) capture
+
+`tap_capture.py` opens BPF with a 4096-byte buffer. At 1700fps with 959-byte frames, rare frames like 09:3c are dropped before they can be read. Use `brightness_hunt.py live` instead:
+
+```bash
+sudo python3 brightness_hunt.py live --iface en11 --out FILE.pcapng
+```
+
+This tool uses a tighter read loop and is the only reliable method for capturing 09:3c frames. Confirmed: `tap_capture.py` yielded 0 09:3c frames at all brightness levels; `brightness_hunt.py` captured 16–27 frames per brightness change.
+
+---
+
 ### bridge0 must be destroyed before running selective_bridge.py
 
 The software bridge conflicts with the hardware bridge. Both try to own the same BPF file descriptors for the same physical interfaces.
@@ -509,7 +533,7 @@ sudo ifconfig bridge0 create && sudo ifconfig bridge0 addm en11 addm en9 && sudo
 
 4. **Scan direction / tile geometry** — We know pixel data streams continuously, but we don't know the scan order (raster left-to-right? serpentine? column order?). Need to inject a known single-pixel pattern and observe which physical LED lights up.
 
-5. **09:3c exact mapping at mid-range** — The 25/50/75% values in the table are calculated. Confirm with a targeted static-brightness capture to verify the exact VX1000 dial → payload[0] mapping for intermediate brightness steps. (May include gamma correction.)
+5. ~~**09:3c exact mapping at mid-range**~~ — VERIFIED 2026-04-15 via live capture. 25%=0x3f, 50%=0x7f, 75%=0xbf. Formula: int(pct\*255/100) floor division confirmed.
 
 6. **Multi-port / multi-tile behavior** — All testing done with a single tile on port 1. Need to test: does port 2 use different frame prefixes? Does daisy-chaining multiple tiles on one port require addressing in the frames?
 
@@ -525,6 +549,11 @@ sudo ifconfig bridge0 create && sudo ifconfig bridge0 addm en11 addm en9 && sudo
 | `~/Desktop/static_100pct.pcapng` | Static, brightness=100% | 0 09:3c frames (expected); 09:2d baseline |
 | `~/Desktop/static_49pct.pcapng` | Static, brightness=49% | 0 09:3c frames (expected); 09:2d baseline |
 | `~/Desktop/en11_bounce.pcapng` | en11 capture, 0→1→0→100→0 bounce | **225 09:3c frames — the decode source** |
+| `~/Desktop/quickconfig_attempt.pcapng` | Two Quick Config attempts, 16MB | 09:2d complementary pair sequence; bidirectional protocol observed |
+| `~/Desktop/brightness_8pct.pcapng` | brightness_hunt.py, en11, 8% | 16 09:3c frames; payload[0]=0x11 |
+| `~/Desktop/brightness_25pct.pcapng` | brightness_hunt.py, en11, 25% | 27 09:3c frames; settled at 0x3f |
+| `~/Desktop/brightness_50pct.pcapng` | brightness_hunt.py, en11, 50% | 25 09:3c frames; settled at 0x7f |
+| `~/Desktop/brightness_75pct.pcapng` | brightness_hunt.py, en11, 75% | 24 09:3c frames; settled at 0xbf |
 
 ---
 

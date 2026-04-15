@@ -49,7 +49,7 @@ def make_brightness_frame(level_pct: float) -> bytes:
     level_pct: 0.0–100.0
     Returns full Ethernet frame bytes.
     """
-    b = max(0, min(255, round(level_pct * 255 / 100)))
+    b = max(0, min(255, int(level_pct * 255 / 100)))
     chk   = (b + 3) & 0xFF
     carry = 0x04 if b >= 0xFD else 0x03
     payload = bytes([b, chk, carry, 0x67, 0x04]) + b'\x00' * 1003
@@ -62,7 +62,7 @@ def make_brightness_frame(level_pct: float) -> bytes:
 def send_brightness(fd, level_pct: float, count: int = 10, interval: float = 0.06):
     """Send brightness command 'count' times, spaced 'interval' seconds apart."""
     frame = make_brightness_frame(level_pct)
-    b = max(0, min(255, round(level_pct * 255 / 100)))
+    b = max(0, min(255, int(level_pct * 255 / 100)))
     print(f'  Sending {count}× brightness={level_pct:.1f}%  (byte=0x{b:02x}={b})')
     for _ in range(count):
         os.write(fd, frame)
