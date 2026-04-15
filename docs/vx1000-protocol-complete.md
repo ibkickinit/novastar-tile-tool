@@ -339,9 +339,62 @@ This explains why the static captures at 0%, 49%, and 100% contained zero `09:3c
 
 The entire frame from byte 2 onward is a continuous raw RGB byte stream. Ethernet framing is being abused as a transport container.
 
-- Frame size: 959 bytes
-- Pixel payload: 945 bytes = 315 RGB pixels per frame
-- Rate: ~1,530 fps at 1920px-wide display
+- Frame size: 575 bytes (192×192 tile, 1×1 Novastar A8 config) — 14-byte header + 561-byte payload = 187 RGB pixels per frame
+- Frame size: 959 bytes (original/default scan config)
+- Rate: ~1,530 fps pixel frames + ~170 fps sync frames = ~1,700 fps total
+
+**Reading the dst MAC as a scan position indicator:**
+dst MAC bytes 2–5 are always the first 4 bytes of that frame's pixel payload. Because the pixel stream is continuous and frames don't align to row boundaries, the dst MAC reveals where in the display scan that frame starts:
+
+| dst MAC bytes 2–5 | Meaning |
+|---|---|
+| `00:00:00:00` | Frame starts at a zero-value pixel (sync/blank, or scan position is between content) |
+| `bf:bf:bf:bf` | Frame starts in a white region (R=G=B=0xbf) |
+| `bf:00:00:bf` | Frame starts in a red region (R=0xbf, G=0, B=0) |
+| `00:bf:00:00` | Frame starts in a green region (R=0, G=0xbf, B=0) |
+| `00:00:bf:00` | Frame starts in a blue region (R=0, G=0, B=0xbf) |
+
+**Why "mostly black" MACs appear even during colored patterns:** Sync frames (all-zero payload, `09:1e:00:00:00:00`) appear at ~10% rate continuously regardless of pattern. At 1,700 fps, ~170 of those frames per second have the black dst MAC. If only a small number of pixel frames happen to start in a non-white region in a given capture window, black MACs will dominate the count. The payload content — not the dst MAC alone — reveals the actual pattern.
+
+---
+
+### 09:1e — Test pattern encoding (VERIFIED 2026-04-15)
+
+**All VX1000 test patterns are pixel-streamed via 09:1e.** The VX1000 generates the test pattern internally and streams the resulting RGB data to the tile. There is no separate test-pattern command frame type.
+
+**Confirmed patterns (192×192 tile, 60% brightness = 0xbf):**
+
+| VX1000 pattern | Pixel content | dst MAC observed |
+|---|---|---|
+| Black | All zeros | `09:1e:00:00:00:00` only |
+| White | R=G=B=0xbf throughout | `09:1e:bf:bf:bf:bf` |
+| Red | R=0xbf, G=0, B=0 throughout | `09:1e:bf:00:00:bf` |
+| Green | R=0, G=0xbf, B=0 throughout | `09:1e:00:bf:00:00` |
+| Blue | R=0, G=0, B=0xbf throughout | `09:1e:00:00:bf:00` |
+| RGB-V | See below | Mix of `bf:bf:bf:bf` and others depending on scan position |
+
+**RGB-V (vertical stripes) — confirmed geometry on 192×192 tile at 60% brightness:**
+
+Visual: left ~2/3 white | right ~1/3 red | far-right 1-pixel column green.
+
+Pixel layout per scan line (192 pixels wide):
+- Columns 0–123 (~128px): White — R=G=B=0xbf
+- Columns 124–190 (~63px): Red — R=0xbf, G=0, B=0
+- Column 191 (1px): Green — R=0, G=0xbf, B=0
+
+Frame payload analysis (frame starting in white region, `bf:bf:bf:bf` dst MAC):
+```
+bytes [0:373]    = 0xbf repeatedly       ← white pixels
+byte  [373]      = 0x00  (G of pixel 124 = start of Red region)
+byte  [374]      = 0x00  (B of pixel 124)
+byte  [375]      = 0xbf  (R of pixel 125, still Red)
+byte  [376]      = 0x00  (G of pixel 125)
+...continues as [R=0xbf, G=0, B=0] repeating
+```
+
+The `bf:bf:bf:bf` dst MAC for an RGB-V frame means the frame started scanning in the white stripe. The red and green stripe content is visible deeper in the payload (offset 373+).
+
+**RGB-H and Checkerboard:** Not yet captured. Expected behavior: RGB-H will show horizontal color bands (different rows = different colors, so different dst MACs per row). Checkerboard will show alternating pixel values within each frame payload.
 
 ---
 
@@ -529,9 +582,9 @@ sudo ifconfig bridge0 create && sudo ifconfig bridge0 addm en11 addm en9 && sudo
 
 2. **Pixel count encoding** — 945 payload bytes = 315 pixels. Is this fixed by the receiving card firmware? Does it change with tile resolution? Unknown.
 
-3. **Inject test pattern** — Frame structure is fully known. Can now construct `09:1e` pixel frames from the Mac to send arbitrary patterns to the tile without a VX1000. This is the logical next step after `inject_brightness.py`.
+3. **Inject test pattern** — Frame structure is fully known. Can now construct `09:1e` pixel frames from the Mac to send arbitrary patterns to the tile without a VX1000. This is the logical next step after `inject_brightness.py`. RGB-V payload structure is confirmed as reference.
 
-4. **Scan direction / tile geometry** — We know pixel data streams continuously, but we don't know the scan order (raster left-to-right? serpentine? column order?). Need to inject a known single-pixel pattern and observe which physical LED lights up.
+4. ~~**Scan direction / tile geometry**~~ — PARTIALLY RESOLVED 2026-04-15. RGB-V capture confirms **horizontal raster scan, left-to-right**. Frame payload bytes map directly to sequential pixel columns within a row. 192px-wide tile confirmed: columns 0–123 = white, 124–190 = red, 191 = green in the RGB-V test pattern. Full row→row order (top-to-bottom vs bottom-to-top) still unconfirmed — need injection test to verify row direction.
 
 5. ~~**09:3c exact mapping at mid-range**~~ — VERIFIED 2026-04-15 via live capture. 25%=0x3f, 50%=0x7f, 75%=0xbf. Formula: int(pct\*255/100) floor division confirmed.
 
@@ -554,6 +607,9 @@ sudo ifconfig bridge0 create && sudo ifconfig bridge0 addm en11 addm en9 && sudo
 | `~/Desktop/brightness_25pct.pcapng` | brightness_hunt.py, en11, 25% | 27 09:3c frames; settled at 0x3f |
 | `~/Desktop/brightness_50pct.pcapng` | brightness_hunt.py, en11, 50% | 25 09:3c frames; settled at 0x7f |
 | `~/Desktop/brightness_75pct.pcapng` | brightness_hunt.py, en11, 75% | 24 09:3c frames; settled at 0xbf |
+| `~/Desktop/test_patterns_all.pcapng` | tap_capture.py, en11+en9, all solid colors | Black/Red/Green/Blue/White confirmed; 575-byte frames; all pixel-streamed |
+| `~/Desktop/test_patterns_stripes.pcapng` | tap_capture.py, en11+en9, stripe patterns | 09:2d payload analysis; 3 unique payloads identified |
+| `~/Desktop/pattern_rgbv.pcapng` | tap_capture.py, en11+en9, White→RGB-V | RGB-V pixel-streamed confirmed; white/red boundary at payload byte 373; scan = horizontal raster |
 
 ---
 

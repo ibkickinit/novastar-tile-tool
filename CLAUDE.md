@@ -27,9 +27,7 @@ LED tile (Novastar A8 receiving card)
 
 ---
 
-## Protocol Status — COMPLETE (as of 2026-04-15)
-
-All four frame types are decoded. Brightness is fully verified.
+## Protocol Status (as of 2026-04-15, Session 3 in progress)
 
 | Frame type | Dst MAC | Rate | Status |
 |---|---|---|---|
@@ -37,6 +35,24 @@ All four frame types are decoded. Brightness is fully verified.
 | Sync/blank | `09:1e:00:00:00:00` | ~170/sec | ✅ Fully decoded |
 | Display config | `09:2d:XX:XX:XX:XX` | 1–5/sec | ⚠️ Role confirmed (required), structure TBD |
 | Brightness | `09:3c:01:ff:ff:ff` | ~17/sec during changes | ✅ Fully decoded + verified |
+
+### Test Pattern Encoding — VERIFIED 2026-04-15
+
+**All test patterns are pixel-streamed via 09:1e. There is no separate test-pattern command frame.**
+
+Solid colors: entire payload is solid RGB value.
+- Black = all `0x00`, White = all `0xbf` (at 60%), Red = `[0xbf,0x00,0x00]` repeating, etc.
+
+RGB-V (vertical stripes) confirmed on 192×192 tile at 60% brightness:
+- Columns 0–123: White (R=G=B=0xbf)
+- Columns 124–190: Red (R=0xbf, G=0, B=0)
+- Column 191: Green (R=0, G=0xbf, B=0)
+- Frame payload byte 373 = first G=0 byte of the red region (white→red boundary)
+- Scan order confirmed: **horizontal raster, left-to-right**
+
+**Reading dst MAC bytes 2–5:** These are always the first 4 bytes of the frame's pixel payload. They reveal where in the display scan the frame starts. `bf:bf:bf:bf` = frame started in white region. `bf:00:00:bf` = frame started in red region. The majority of frames having `00:00:00:00` dst MAC during a colored pattern is normal — those are the sync frames (~170/sec) mixed with colored pixel frames.
+
+RGB-H and Checkerboard: captures pending.
 
 ### Brightness encoding (09:3c) — VERIFIED
 
