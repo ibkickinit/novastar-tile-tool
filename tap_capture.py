@@ -63,8 +63,11 @@ def open_bpf(iface: str) -> Tuple[int, int]:
     for i in range(256):
         try:
             fd = os.open(f'/dev/bpf{i}', os.O_RDWR)
+            try:
+                fcntl.ioctl(fd, BIOCSBLEN, struct.pack('I', 1048576))  # 1MB buffer (must be before BIOCSETIF)
+            except OSError:
+                pass  # non-fatal; kernel may cap or ignore
             fcntl.ioctl(fd, BIOCSETIF, struct.pack('16s', iface.encode()))
-            fcntl.ioctl(fd, BIOCSBLEN, struct.pack('I', 1048576))  # 1MB buffer
             fcntl.ioctl(fd, BIOCIMMEDIATE, struct.pack('I', 1))
             fcntl.ioctl(fd, BIOCSHDRCMPLT, struct.pack('I', 1))
             fcntl.ioctl(fd, BIOCPROMISC, struct.pack('I', 1))
@@ -477,8 +480,11 @@ def main():
         help='USB TAP monitor port — sees TB10 tile output (e.g. en10)')
     parser.add_argument('--no-pcap', action='store_true',
         help='Disable pcapng output')
-    parser.add_argument('--out', default='session.pcapng',
-        help='Output pcapng filename (default: session.pcapng)')
+    DROPBOX_CAPTURES = os.path.expanduser(
+        '~/Library/CloudStorage/Dropbox-Personal/_Claude/novastar-captures')
+    parser.add_argument('--out',
+        default=os.path.join(DROPBOX_CAPTURES, 'session.pcapng'),
+        help='Output pcapng filename (default: Dropbox-Personal/_Claude/novastar-captures/session.pcapng)')
     args = parser.parse_args()
 
     if args.list_ifaces:

@@ -499,7 +499,8 @@ def main():
     # live
     p = sub.add_parser('live', help='Live BPF capture, flag one-shot frames')
     p.add_argument('--iface', default='bridge0', help='Interface to capture on (default: bridge0)')
-    p.add_argument('--out', default=None, help='Write pcapng to this file')
+    p.add_argument('--out', default=None,
+                   help='Write pcapng to this file (suggest: ~/Library/CloudStorage/Dropbox-Personal/_Claude/novastar-captures/FILENAME.pcapng)')
     p.add_argument('--interval', type=float, default=5.0,
                    help='Status print interval in seconds (default: 5)')
     p.add_argument('--rare-threshold', type=int, default=5,
